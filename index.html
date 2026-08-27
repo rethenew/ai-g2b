@@ -82,7 +82,7 @@
   <div class="tabs" id="tabs"></div>
   <div class="toolbar">
     <input id="q" placeholder="공고명 · 기관 검색">
-    <input id="ex" class="exinput" placeholder="✕ 제외어 입력 후 Enter (즉시 삭제)">
+    <input id="ex" class="exinput" placeholder="✕ 제외어 (콤마로 여러 개) Enter">
     <div class="sort">정렬
       <select id="sort">
         <option value="when">마감 임박순</option>
@@ -252,10 +252,11 @@ document.addEventListener('DOMContentLoaded', function(){
     if(e.key!=='Enter') return;
     var w=(exEl.value||'').trim();
     if(!w) return;
-    if(!confirm('"'+w+'" 가 제목에 포함된 공고를 모두 삭제하고, 제외 키워드에 등록합니다.\n(다음 수집부터도 자동 제외)\n\n진행할까요?')) return;
+    var wlist=w.split(',').map(function(s){return s.trim();}).filter(String);
+    if(!confirm('['+wlist.join('] [')+'] 중 하나라도 제목에 포함된 공고를 모두 삭제하고, 제외 키워드에 등록합니다.\n(다음 수집부터도 자동 제외)\n\n진행할까요?')) return;
     exEl.value=''; exEl.disabled=true; exEl.placeholder='삭제 중…';
     jsonp({action:'exclude', word:w}, function(r){
-      exEl.disabled=false; exEl.placeholder='✕ 제외어 입력 후 Enter (즉시 삭제)';
+      exEl.disabled=false; exEl.placeholder='✕ 제외어 (콤마로 여러 개) Enter';
       if(!r||r.err){ alert('오류: '+((r&&r.err)||'응답없음')); return; }
       S.data=r.data||{}; S.stars=r.stars||{};
       tabs(); kwbar(); paint();
