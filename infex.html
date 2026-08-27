@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>나라장터 브리핑</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+  :root{--ink:#12181F;--steel:#4A5763;--mist:#98A4AE;--paper:#F4F6F5;--card:#FFF;
+        --line:#E4E8E6;--line2:#EEF1EF;--live:#1F7A5C;--spec:#B07D2B;--plan:#5B6B78;
+        --alert:#C0392B;--star:#E6A817;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Pretendard',-apple-system,'Malgun Gothic',sans-serif;background:var(--paper);color:var(--ink);-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1300px;margin:0 auto;padding:16px 14px 60px}
+  header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+  .fbtn{font:inherit;font-size:13px;font-weight:700;cursor:pointer;padding:8px 15px;border:1px solid var(--ink);background:var(--ink);color:#fff;border-radius:3px}
+  .fbtn:active{background:var(--steel)}
+  .ttl{font-size:18px;font-weight:800;letter-spacing:-.03em}
+  .ttl span{color:var(--mist);font-weight:500;font-size:11px;margin-left:6px}
+  .tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+  .tab{padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--mist);border-radius:3px}
+  .tab.on{color:#fff;border-color:transparent}
+  .tab[data-k="일반공고"].on{background:var(--live)}
+  .tab[data-k="사전규격"].on{background:var(--spec)}
+  .tab[data-k="발주계획"].on{background:var(--plan)}
+  .tab[data-k="관심"].on{background:var(--star);color:#3A2E00}
+  .tab b{margin-left:5px;font-variant-numeric:tabular-nums}
+  .toolbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
+  .toolbar input{flex:1;min-width:160px;font:inherit;font-size:13px;padding:9px 11px;border:1px solid var(--line);background:var(--card);border-radius:3px}
+  .toolbar input:focus{outline:2px solid var(--live);outline-offset:-1px}
+  .sort select{font:inherit;font-size:12px;padding:8px 9px;border:1px solid var(--line);border-radius:3px;background:var(--card)}
+  .drawer{position:fixed;top:0;left:0;bottom:0;width:340px;max-width:86vw;background:var(--card);z-index:100;transform:translateX(-100%);transition:transform .22s;overflow-y:auto;box-shadow:2px 0 12px rgba(0,0,0,.08)}
+  .drawer.open{transform:translateX(0)}
+  .drawer-hd{position:sticky;top:0;background:var(--ink);color:#fff;padding:15px 18px;display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:800}
+  .dclose{cursor:pointer;font-size:19px}
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:99;display:none}
+  .overlay.open{display:block}
+  .kwbar{display:flex;flex-wrap:wrap;gap:6px;padding:16px}
+  .kwbar .kchip{font-size:12px;padding:5px 11px;border:1px solid var(--line);background:var(--card);color:var(--steel);border-radius:20px;cursor:pointer;font-weight:600}
+  .kwbar .kchip.on{background:var(--live);color:#fff;border-color:var(--live)}
+  .kwbar .clear{font-size:12px;padding:5px 11px;color:var(--alert);cursor:pointer;border:1px dashed var(--alert);border-radius:20px;width:100%;text-align:center}
+  .tbl{background:var(--card);border:1px solid var(--line);border-radius:3px;overflow:hidden}
+  .th,.tr{display:grid;grid-template-columns:34px 1fr 180px 108px 118px 78px;align-items:center}
+  .th{background:#F0F3F1;border-bottom:2px solid var(--ink);font-size:11px;font-weight:800;color:var(--steel)}
+  .th>div,.tr>div{padding:11px 12px}
+  .tr{border-bottom:1px solid var(--line2);font-size:13px}
+  .tr:last-child{border-bottom:none}
+  .star{cursor:pointer;font-size:18px;color:var(--line);text-align:center;user-select:none}
+  .star.on{color:var(--star)}
+  .c-title{font-weight:600;line-height:1.4;min-width:0}
+  .c-title a{color:var(--ink);text-decoration:none}
+  .c-title .kw{display:block;font-size:11px;color:var(--live);font-weight:500;margin-top:3px}
+  .memo{display:inline-block;margin-top:5px;font-size:11px;color:var(--spec);background:#FCF6E9;padding:3px 7px;border-radius:3px;cursor:pointer}
+  .memo.empty{color:var(--mist);background:transparent;border:1px dashed var(--line)}
+  .by{font-size:10px;color:var(--mist);margin-left:6px}
+  .c-org{font-size:12px;color:var(--steel)}
+  .c-when{font-size:12px;font-variant-numeric:tabular-nums}
+  .c-when.soon{color:var(--alert);font-weight:700}
+  .c-amt{font-size:12px;font-variant-numeric:tabular-nums;font-weight:700;text-align:right;color:var(--steel)}
+  .c-mthd{font-size:11px;color:var(--mist);text-align:center}
+  .empty{padding:48px;text-align:center;color:var(--mist);font-size:13px;line-height:1.9}
+  #busy{padding:48px;text-align:center;color:var(--steel);font-size:13px}
+  @media(max-width:760px){
+    .th{display:none}
+    .tr{grid-template-columns:30px 1fr;gap:2px 8px;padding:11px 12px}
+    .tr>div{padding:1px 0}
+    .c-org,.c-when,.c-amt,.c-mthd{grid-column:2}
+    .c-amt{text-align:left}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <button id="filterBtn" class="fbtn">☰ 필터</button>
+    <div class="ttl">나라장터 브리핑<span id="last"></span></div>
+  </header>
+  <div class="tabs" id="tabs"></div>
+  <div class="toolbar">
+    <input id="q" placeholder="공고명 · 기관 검색">
+    <div class="sort">정렬
+      <select id="sort">
+        <option value="when">마감 임박순</option>
+        <option value="amt">금액 높은순</option>
+        <option value="amtA">금액 낮은순</option>
+      </select>
+    </div>
+  </div>
+  <div id="drawer" class="drawer">
+    <div class="drawer-hd"><span>키워드 필터</span><span id="drawerClose" class="dclose">✕</span></div>
+    <div class="kwbar" id="kwbar"></div>
+  </div>
+  <div id="overlay" class="overlay"></div>
+  <div class="tbl">
+    <div class="th">
+      <div style="text-align:center">★</div>
+      <div>사업명 / 공고명</div><div>기관</div>
+      <div>마감·발주</div><div style="text-align:right">금액</div>
+      <div style="text-align:center">계약</div>
+    </div>
+    <div id="rows"><div id="busy">데이터 불러오는 중…</div></div>
+  </div>
+</div>
+
+<script>
+// ★★★ 여기에 Apps Script 웹앱 URL 을 붙여넣으세요 (/exec 로 끝나는 것) ★★★
+var API = 'https://script.google.com/macros/s/AKfycbydPWnaxqJigOE3Y_DptoFvJe5vTvDm06bx8F_9qK6ppvEf2tvI70JH2z1ou7g-IdQd/exec';
+
+var S = { data:{}, stars:{}, tab:'일반공고', kw:'' };
+var ORDER = ['일반공고','사전규격','발주계획','관심'];
+var rowsEl, tabsEl, lastEl, qEl, sortEl, kwbarEl, drawer, overlay;
+
+function esc(s){ return String(s).replace(/[&<>"]/g,function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+// JSONP 호출 (CORS 회피)
+function jsonp(params, cb){
+  var name = 'cb_' + Math.random().toString(36).slice(2);
+  window[name] = function(res){ delete window[name]; document.body.removeChild(s); cb(res); };
+  var qs = Object.keys(params).map(function(k){ return k+'='+encodeURIComponent(params[k]); }).join('&');
+  var s = document.createElement('script');
+  s.src = API + '?' + qs + '&callback=' + name;
+  s.onerror = function(){ delete window[name]; cb({err:'네트워크 오류'}); };
+  document.body.appendChild(s);
+}
+
+function load(){
+  jsonp({action:'load'}, function(r){
+    if(!r || r.err){ rowsEl.innerHTML='<div class="empty" style="color:#C0392B">오류: '+esc((r&&r.err)||'응답없음')+'</div>'; return; }
+    S.data=r.data||{}; S.stars=r.stars||{};
+    lastEl.textContent='· 수집 '+(r.last||'');
+    tabs(); kwbar(); paint();
+  });
+}
+
+function starred(){
+  var out=[];
+  ['일반공고','사전규격','발주계획'].forEach(function(k){
+    (S.data[k]||[]).forEach(function(r){ if(S.stars[r.id]) out.push(r); });
+  });
+  return out;
+}
+function findItem(id){
+  var f=null;
+  ['일반공고','사전규격','발주계획'].forEach(function(k){
+    (S.data[k]||[]).forEach(function(r){ if(r.id===id) f={kind:k,item:r}; });
+  });
+  return f;
+}
+
+function tabs(){
+  tabsEl.innerHTML='';
+  ORDER.forEach(function(k){
+    var cnt = k==='관심' ? Object.keys(S.stars).length : (S.data[k]||[]).length;
+    var d=document.createElement('div');
+    d.className='tab'+(S.tab===k?' on':''); d.setAttribute('data-k',k);
+    d.innerHTML=(k==='관심'?'★ 관심':k)+'<b>'+cnt+'</b>';
+    d.onclick=function(){ S.tab=k; S.kw=''; tabs(); kwbar(); paint(); };
+    tabsEl.appendChild(d);
+  });
+}
+
+function kwbar(){
+  kwbarEl.innerHTML='';
+  var rows = S.tab==='관심' ? starred() : (S.data[S.tab]||[]);
+  var freq={};
+  rows.forEach(function(r){ String(r.hits||'').split('|').forEach(function(k){ k=k.trim(); if(k) freq[k]=(freq[k]||0)+1; }); });
+  var keys=Object.keys(freq).sort(function(a,b){ return a.localeCompare(b,'ko'); });
+  if(S.kw){
+    var cl=document.createElement('span'); cl.className='clear'; cl.textContent='✕ 필터 해제 ('+S.kw+')';
+    cl.onclick=function(){ S.kw=''; kwbar(); paint(); }; kwbarEl.appendChild(cl);
+  }
+  keys.forEach(function(k){
+    var c=document.createElement('span');
+    c.className='kchip'+(S.kw===k?' on':''); c.textContent=k+' '+freq[k];
+    c.onclick=function(){ S.kw=(S.kw===k?'':k); kwbar(); paint(); closeDrawer(); };
+    kwbarEl.appendChild(c);
+  });
+}
+
+function paint(){
+  var q=(qEl.value||'').trim().toLowerCase();
+  var sort=sortEl.value;
+  var rows = S.tab==='관심' ? starred() : (S.data[S.tab]||[]).slice();
+  if(S.tab==='일반공고'||S.tab==='사전규격'){
+    var now=new Date(), yr=now.getFullYear();
+    rows=rows.filter(function(r){
+      var w=String(r.when);
+      if(w.length<5||w.charAt(2)!=='/') return true;
+      var mo=parseInt(w.substr(0,2),10), da=parseInt(w.substr(3,2),10);
+      if(!(mo>=1&&da>=1)) return true;
+      var hh=0,mm=0,tp=w.substr(6);
+      if(tp.indexOf(':')>=0){ hh=parseInt(tp.split(':')[0],10)||0; mm=parseInt(tp.split(':')[1],10)||0; }
+      var y=yr; if(mo<now.getMonth()+1-6) y=yr+1;
+      return new Date(y,mo-1,da,hh,mm)>=now;
+    });
+  }
+  if(S.kw) rows=rows.filter(function(r){ return String(r.hits||'').split('|').map(function(x){return x.trim();}).indexOf(S.kw)>=0; });
+  if(q) rows=rows.filter(function(r){ return (r.title+' '+r.org).toLowerCase().indexOf(q)>=0; });
+  rows.sort(function(a,b){
+    if(sort==='amt') return (b.amt||0)-(a.amt||0);
+    if(sort==='amtA') return (a.amt||0)-(b.amt||0);
+    return String(a.when).localeCompare(String(b.when));
+  });
+  if(!rows.length){ rowsEl.innerHTML='<div class="empty">'+(S.tab==='관심'?'별표한 공고가 없다. ★ 를 눌러 저장.':'해당 공고가 없다.')+'</div>'; return; }
+  var now2=new Date();
+  rowsEl.innerHTML=rows.map(function(r){
+    var on=!!S.stars[r.id], st=on?S.stars[r.id]:null;
+    var amt=r.amt?Number(r.amt).toLocaleString('ko-KR')+'원':'—';
+    var title=r.url?'<a href="'+esc(r.url)+'" target="_blank" rel="noopener">'+esc(r.title)+'</a>':'<span>'+esc(r.title)+'</span>';
+    var kw=r.hits?'<span class="kw">'+esc(r.hits)+'</span>':'';
+    var memo='';
+    if(on){
+      var by=st&&st.by?'<span class="by">'+esc(st.by)+'</span>':'';
+      memo=(st&&st.memo)?'<span class="memo" data-act="memo" data-id="'+esc(r.id)+'">📝 '+esc(st.memo)+by+'</span>'
+                        :'<span class="memo empty" data-act="memo" data-id="'+esc(r.id)+'">＋ 메모</span>';
+    }
+    var soon='',w=String(r.when);
+    if(w.length>=5&&w.charAt(2)==='/'){ var mo=parseInt(w.substr(0,2),10),da=parseInt(w.substr(3,2),10);
+      if(mo>=1&&da>=1){ var dd=(new Date(now2.getFullYear(),mo-1,da)-now2)/86400000; if(dd>=0&&dd<=3)soon=' soon'; } }
+    return '<div class="tr">'
+      +'<div class="star'+(on?' on':'')+'" data-act="toggle" data-id="'+esc(r.id)+'">'+(on?'★':'☆')+'</div>'
+      +'<div class="c-title">'+title+kw+memo+'</div>'
+      +'<div class="c-org">'+esc(r.org)+'</div>'
+      +'<div class="c-when'+soon+'">'+esc(r.when||'—')+'</div>'
+      +'<div class="c-amt">'+amt+'</div>'
+      +'<div class="c-mthd">'+esc(r.mthd)+'</div></div>';
+  }).join('');
+}
+
+function openDrawer(){ drawer.classList.add('open'); overlay.classList.add('open'); }
+function closeDrawer(){ drawer.classList.remove('open'); overlay.classList.remove('open'); }
+
+document.addEventListener('DOMContentLoaded', function(){
+  rowsEl=document.getElementById('rows'); tabsEl=document.getElementById('tabs');
+  lastEl=document.getElementById('last'); qEl=document.getElementById('q');
+  sortEl=document.getElementById('sort'); kwbarEl=document.getElementById('kwbar');
+  drawer=document.getElementById('drawer'); overlay=document.getElementById('overlay');
+
+  document.getElementById('filterBtn').onclick=openDrawer;
+  document.getElementById('drawerClose').onclick=closeDrawer;
+  overlay.onclick=closeDrawer;
+  qEl.oninput=paint; sortEl.onchange=paint;
+
+  rowsEl.addEventListener('click', function(e){
+    var t=e.target;
+    while(t && t!==rowsEl && !t.getAttribute('data-act')) t=t.parentNode;
+    if(!t||t===rowsEl) return;
+    var act=t.getAttribute('data-act'), id=t.getAttribute('data-id');
+    if(act==='toggle'){
+      var f=findItem(id); if(!f) return; var it=f.item;
+      if(S.stars[id]) delete S.stars[id]; else S.stars[id]={by:'',memo:''};
+      tabs(); paint();
+      jsonp({action:'star',id:id,kind:f.kind,title:it.title,org:it.org,when:it.when,amt:it.amt,url:it.url},
+        function(stars){ if(stars&&!stars.err){S.stars=stars;tabs();paint();} });
+    } else if(act==='memo'){
+      var cur=(S.stars[id]&&S.stars[id].memo)||'';
+      var v=prompt('메모', cur); if(v===null) return;
+      if(S.stars[id]) S.stars[id].memo=v; paint();
+      jsonp({action:'memo',id:id,memo:v}, function(stars){ if(stars&&!stars.err){S.stars=stars;paint();} });
+    }
+  });
+
+  if(API.indexOf('PASTE_')===0){
+    rowsEl.innerHTML='<div class="empty" style="color:#C0392B">API 주소가 설정되지 않았습니다.<br>index.html 의 var API 에 Apps Script /exec URL 을 넣으세요.</div>';
+    return;
+  }
+  load();
+});
+</script>
+</body>
+</html>
