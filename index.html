@@ -29,6 +29,9 @@
   .toolbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
   .toolbar input{flex:1;min-width:160px;font:inherit;font-size:13px;padding:9px 11px;border:1px solid var(--line);background:var(--card);border-radius:3px}
   .toolbar input:focus{outline:2px solid var(--live);outline-offset:-1px}
+  .exinput{flex:1;min-width:160px;font:inherit;font-size:13px;padding:9px 11px;border:1px solid #EFD9D5;background:#FDF4F3;color:var(--alert);border-radius:3px}
+  .exinput::placeholder{color:#C0806F}
+  .exinput:focus{outline:2px solid var(--alert);outline-offset:-1px}
   .sort select{font:inherit;font-size:12px;padding:8px 9px;border:1px solid var(--line);border-radius:3px;background:var(--card)}
   .drawer{position:fixed;top:0;left:0;bottom:0;width:340px;max-width:86vw;background:var(--card);z-index:100;transform:translateX(-100%);transition:transform .22s;overflow-y:auto;box-shadow:2px 0 12px rgba(0,0,0,.08)}
   .drawer.open{transform:translateX(0)}
@@ -79,6 +82,7 @@
   <div class="tabs" id="tabs"></div>
   <div class="toolbar">
     <input id="q" placeholder="공고명 · 기관 검색">
+    <input id="ex" class="exinput" placeholder="✕ 제외어 입력 후 Enter (즉시 삭제)">
     <div class="sort">정렬
       <select id="sort">
         <option value="when">마감 임박순</option>
@@ -242,6 +246,21 @@ document.addEventListener('DOMContentLoaded', function(){
   document.getElementById('drawerClose').onclick=closeDrawer;
   overlay.onclick=closeDrawer;
   qEl.oninput=paint; sortEl.onchange=paint;
+
+  var exEl=document.getElementById('ex');
+  exEl.addEventListener('keydown', function(e){
+    if(e.key!=='Enter') return;
+    var w=(exEl.value||'').trim();
+    if(!w) return;
+    if(!confirm('"'+w+'" 가 제목에 포함된 공고를 모두 삭제하고, 제외 키워드에 등록합니다.\n(다음 수집부터도 자동 제외)\n\n진행할까요?')) return;
+    exEl.value=''; exEl.disabled=true; exEl.placeholder='삭제 중…';
+    jsonp({action:'exclude', word:w}, function(r){
+      exEl.disabled=false; exEl.placeholder='✕ 제외어 입력 후 Enter (즉시 삭제)';
+      if(!r||r.err){ alert('오류: '+((r&&r.err)||'응답없음')); return; }
+      S.data=r.data||{}; S.stars=r.stars||{};
+      tabs(); kwbar(); paint();
+    });
+  });
 
   rowsEl.addEventListener('click', function(e){
     var t=e.target;
