@@ -51,10 +51,10 @@
   .tr:last-child{border-bottom:none}
   .star{cursor:pointer;font-size:18px;color:var(--line);text-align:center;user-select:none}
   .star.on{color:var(--star)}
-  .hidebtn{display:block;margin-top:6px;font-size:16px;font-weight:700;color:var(--mist);cursor:pointer;line-height:1;user-select:none}
-  .hidebtn:hover{color:var(--alert)}
-  .hidebtn.back{color:var(--live)}
-  .hidebtn.back:hover{color:var(--live);font-weight:800}
+  .hidebtn{display:inline-block;margin-top:6px;font-size:11px;font-weight:700;color:var(--mist);cursor:pointer;user-select:none;padding:2px 8px;border:1px solid var(--line);border-radius:12px}
+  .hidebtn:hover{color:#fff;background:var(--mist);border-color:var(--mist)}
+  .hidebtn.back{color:var(--live);border-color:var(--live)}
+  .hidebtn.back:hover{color:#fff;background:var(--live)}
   .c-title{font-weight:600;line-height:1.4;min-width:0}
   .c-title a{color:var(--ink);text-decoration:none}
   .c-title .kw{display:block;font-size:11px;color:var(--live);font-weight:500;margin-top:3px}
@@ -243,11 +243,11 @@ function paint(){
     if(w.length>=5&&w.charAt(2)==='/'){ var mo=parseInt(w.substr(0,2),10),da=parseInt(w.substr(3,2),10);
       if(mo>=1&&da>=1){ var dd=(new Date(now2.getFullYear(),mo-1,da)-now2)/86400000; if(dd>=0&&dd<=3)soon=' soon'; } }
     var hideBtn = S.tab==='숨김'
-      ? '<span class="hidebtn back" data-act="unhide" data-id="'+esc(r.id)+'" title="되살리기">+</span>'
-      : '<span class="hidebtn" data-act="hide" data-id="'+esc(r.id)+'" data-title="'+esc(r.title)+'" title="숨기기">−</span>';
+      ? '<span class="hidebtn back" data-act="unhide" data-id="'+esc(r.id)+'" title="되살리기">↩ 되살리기</span>'
+      : '<span class="hidebtn" data-act="hide" data-id="'+esc(r.id)+'" data-title="'+esc(r.title)+'" title="숨기기">− 숨기기</span>';
     return '<div class="tr">'
-      +'<div class="star'+(on?' on':'')+'" data-act="toggle" data-id="'+esc(r.id)+'">'+(on?'★':'☆')+hideBtn+'</div>'
-      +'<div class="c-title">'+title+kw+memo+'</div>'
+      +'<div class="star'+(on?' on':'')+'" data-act="toggle" data-id="'+esc(r.id)+'">'+(on?'★':'☆')+'</div>'
+      +'<div class="c-title">'+title+kw+memo+hideBtn+'</div>'
       +'<div class="c-org">'+esc(r.org)+'</div>'
       +'<div class="c-when'+soon+'">'+esc(r.when||'—')+'</div>'
       +'<div class="c-amt">'+amt+'</div>'
@@ -289,6 +289,7 @@ document.addEventListener('DOMContentLoaded', function(){
     var t=e.target;
     while(t && t!==rowsEl && !t.getAttribute('data-act')) t=t.parentNode;
     if(!t||t===rowsEl) return;
+    e.stopPropagation();
     var act=t.getAttribute('data-act'), id=t.getAttribute('data-id');
     if(act==='toggle'){
       var f=findItem(id); if(!f) return; var it=f.item;
