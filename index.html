@@ -51,6 +51,10 @@
   .tr:last-child{border-bottom:none}
   .star{cursor:pointer;font-size:18px;color:var(--line);text-align:center;user-select:none}
   .star.on{color:var(--star)}
+  .hidebtn{display:block;margin-top:6px;font-size:16px;font-weight:700;color:var(--mist);cursor:pointer;line-height:1;user-select:none}
+  .hidebtn:hover{color:var(--alert)}
+  .hidebtn.back{color:var(--live)}
+  .hidebtn.back:hover{color:var(--live);font-weight:800}
   .c-title{font-weight:600;line-height:1.4;min-width:0}
   .c-title a{color:var(--ink);text-decoration:none}
   .c-title .kw{display:block;font-size:11px;color:var(--live);font-weight:500;margin-top:3px}
@@ -111,8 +115,8 @@
 // ★★★ 여기에 Apps Script 웹앱 URL 을 붙여넣으세요 (/exec 로 끝나는 것) ★★★
 var API = 'https://script.google.com/macros/s/AKfycbydPWnaxqJigOE3Y_DptoFvJe5vTvDm06bx8F_9qK6ppvEf2tvI70JH2z1ou7g-IdQd/exec';
 
-var S = { data:{}, stars:{}, tab:'일반공고', kw:'' };
-var ORDER = ['일반공고','사전규격','발주계획','관심'];
+var S = { data:{}, stars:{}, hides:{}, tab:'일반공고', kw:'' };
+var ORDER = ['일반공고','사전규격','발주계획','관심','숨김'];
 var rowsEl, tabsEl, lastEl, qEl, sortEl, kwbarEl, drawer, overlay;
 
 function esc(s){ return String(s).replace(/[&<>"]/g,function(c){
@@ -132,7 +136,7 @@ function jsonp(params, cb){
 function load(){
   jsonp({action:'load'}, function(r){
     if(!r || r.err){ rowsEl.innerHTML='<div class="empty" style="color:#C0392B">오류: '+esc((r&&r.err)||'응답없음')+'</div>'; return; }
-    S.data=r.data||{}; S.stars=r.stars||{};
+    S.data=r.data||{}; S.stars=r.stars||{}; S.hides=r.hides||{};
     lastEl.textContent='· 수집 '+(r.last||'');
     tabs(); kwbar(); paint();
   });
@@ -153,13 +157,23 @@ function findItem(id){
   return f;
 }
 
+function allRows(){
+  var out=[];
+  ['일반공고','사전규격','발주계획'].forEach(function(k){ (S.data[k]||[]).forEach(function(r){ out.push(r); }); });
+  return out;
+}
+function hiddenRows(){ return allRows().filter(function(r){ return S.hides[r.id]; }); }
 function tabs(){
   tabsEl.innerHTML='';
   ORDER.forEach(function(k){
-    var cnt = k==='관심' ? Object.keys(S.stars).length : (S.data[k]||[]).length;
+    var cnt;
+    if(k==='관심') cnt=Object.keys(S.stars).length;
+    else if(k==='숨김') cnt=Object.keys(S.hides).length;
+    else cnt=(S.data[k]||[]).filter(function(r){ return !S.hides[r.id]; }).length;
     var d=document.createElement('div');
     d.className='tab'+(S.tab===k?' on':''); d.setAttribute('data-k',k);
-    d.innerHTML=(k==='관심'?'★ 관심':k)+'<b>'+cnt+'</b>';
+    var label = k==='관심'?'★ 관심' : k==='숨김'?'— 숨김' : k;
+    d.innerHTML=label+'<b>'+cnt+'</b>';
     d.onclick=function(){ S.tab=k; S.kw=''; tabs(); kwbar(); paint(); };
     tabsEl.appendChild(d);
   });
@@ -186,7 +200,12 @@ function kwbar(){
 function paint(){
   var q=(qEl.value||'').trim().toLowerCase();
   var sort=sortEl.value;
-  var rows = S.tab==='관심' ? starred() : (S.data[S.tab]||[]).slice();
+  var rows;
+  if(S.tab==='관심') rows=starred();
+  else if(S.tab==='숨김') rows=hiddenRows();
+  else rows=(S.data[S.tab]||[]).slice();
+  // 숨김 탭이 아니면 숨긴 항목 제외
+  if(S.tab!=='숨김') rows=rows.filter(function(r){ return !S.hides[r.id]; });
   if(S.tab==='일반공고'||S.tab==='사전규격'){
     var now=new Date(), yr=now.getFullYear();
     rows=rows.filter(function(r){
@@ -207,7 +226,7 @@ function paint(){
     if(sort==='amtA') return (a.amt||0)-(b.amt||0);
     return String(a.when).localeCompare(String(b.when));
   });
-  if(!rows.length){ rowsEl.innerHTML='<div class="empty">'+(S.tab==='관심'?'별표한 공고가 없다. ★ 를 눌러 저장.':'해당 공고가 없다.')+'</div>'; return; }
+  if(!rows.length){ rowsEl.innerHTML='<div class="empty">'+(S.tab==='관심'?'별표한 공고가 없다. ★ 를 눌러 저장.':S.tab==='숨김'?'숨긴 공고가 없다.':'해당 공고가 없다.')+'</div>'; return; }
   var now2=new Date();
   rowsEl.innerHTML=rows.map(function(r){
     var on=!!S.stars[r.id], st=on?S.stars[r.id]:null;
@@ -223,8 +242,11 @@ function paint(){
     var soon='',w=String(r.when);
     if(w.length>=5&&w.charAt(2)==='/'){ var mo=parseInt(w.substr(0,2),10),da=parseInt(w.substr(3,2),10);
       if(mo>=1&&da>=1){ var dd=(new Date(now2.getFullYear(),mo-1,da)-now2)/86400000; if(dd>=0&&dd<=3)soon=' soon'; } }
+    var hideBtn = S.tab==='숨김'
+      ? '<span class="hidebtn back" data-act="unhide" data-id="'+esc(r.id)+'" title="되살리기">+</span>'
+      : '<span class="hidebtn" data-act="hide" data-id="'+esc(r.id)+'" data-title="'+esc(r.title)+'" title="숨기기">−</span>';
     return '<div class="tr">'
-      +'<div class="star'+(on?' on':'')+'" data-act="toggle" data-id="'+esc(r.id)+'">'+(on?'★':'☆')+'</div>'
+      +'<div class="star'+(on?' on':'')+'" data-act="toggle" data-id="'+esc(r.id)+'">'+(on?'★':'☆')+hideBtn+'</div>'
       +'<div class="c-title">'+title+kw+memo+'</div>'
       +'<div class="c-org">'+esc(r.org)+'</div>'
       +'<div class="c-when'+soon+'">'+esc(r.when||'—')+'</div>'
@@ -274,6 +296,13 @@ document.addEventListener('DOMContentLoaded', function(){
       tabs(); paint();
       jsonp({action:'star',id:id,kind:f.kind,title:it.title,org:it.org,when:it.when,amt:it.amt,url:it.url},
         function(stars){ if(stars&&!stars.err){S.stars=stars;tabs();paint();} });
+    } else if(act==='hide'){
+      var ti=t.getAttribute('data-title')||'';
+      S.hides[id]=1; tabs(); paint();
+      jsonp({action:'hide',id:id,title:ti}, function(h){ if(h&&!h.err){S.hides=h;tabs();paint();} });
+    } else if(act==='unhide'){
+      delete S.hides[id]; tabs(); paint();
+      jsonp({action:'unhide',id:id}, function(h){ if(h&&!h.err){S.hides=h;tabs();paint();} });
     } else if(act==='memo'){
       var cur=(S.stars[id]&&S.stars[id].memo)||'';
       var v=prompt('메모', cur); if(v===null) return;
