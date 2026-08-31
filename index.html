@@ -18,6 +18,10 @@
   .fbtn:active{background:var(--steel)}
   .ttl{font-size:18px;font-weight:800;letter-spacing:-.03em}
   .ttl span{color:var(--mist);font-weight:500;font-size:11px;margin-left:6px}
+  .datebar{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:10px;-webkit-overflow-scrolling:touch}
+  .datebar .dchip{flex:0 0 auto;font-size:12px;font-weight:700;padding:7px 12px;border:1px solid var(--line);background:var(--card);color:var(--steel);border-radius:20px;cursor:pointer;white-space:nowrap}
+  .datebar .dchip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .datebar .dchip .n{margin-left:5px;font-weight:500;opacity:.7}
   .tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
   .tab{padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--mist);border-radius:3px}
   .tab.on{color:#fff;border-color:transparent}
@@ -83,6 +87,7 @@
     <button id="filterBtn" class="fbtn">☰ 필터</button>
     <div class="ttl">나라장터 브리핑<span id="last"></span></div>
   </header>
+  <div class="datebar" id="datebar"></div>
   <div class="tabs" id="tabs"></div>
   <div class="toolbar">
     <input id="q" placeholder="공고명 · 기관 검색">
@@ -115,7 +120,7 @@
 // ★★★ 여기에 Apps Script 웹앱 URL 을 붙여넣으세요 (/exec 로 끝나는 것) ★★★
 var API = 'https://script.google.com/macros/s/AKfycbydPWnaxqJigOE3Y_DptoFvJe5vTvDm06bx8F_9qK6ppvEf2tvI70JH2z1ou7g-IdQd/exec';
 
-var S = { data:{}, stars:{}, hides:{}, tab:'일반공고', kw:'' };
+var S = { data:{}, stars:{}, hides:{}, tab:'일반공고', kw:'', date:'' };
 var ORDER = ['일반공고','사전규격','발주계획','관심','숨김'];
 var rowsEl, tabsEl, lastEl, qEl, sortEl, kwbarEl, drawer, overlay;
 
@@ -138,7 +143,7 @@ function load(){
     if(!r || r.err){ rowsEl.innerHTML='<div class="empty" style="color:#C0392B">오류: '+esc((r&&r.err)||'응답없음')+'</div>'; return; }
     S.data=r.data||{}; S.stars=r.stars||{}; S.hides=r.hides||{};
     lastEl.textContent='· 수집 '+(r.last||'');
-    tabs(); kwbar(); paint();
+    tabs(); datebar(); kwbar(); paint();
   });
 }
 
@@ -174,8 +179,34 @@ function tabs(){
     d.className='tab'+(S.tab===k?' on':''); d.setAttribute('data-k',k);
     var label = k==='관심'?'★ 관심' : k==='숨김'?'— 숨김' : k;
     d.innerHTML=label+'<b>'+cnt+'</b>';
-    d.onclick=function(){ S.tab=k; S.kw=''; tabs(); kwbar(); paint(); };
+    d.onclick=function(){ S.tab=k; S.kw=''; S.date=''; tabs(); datebar(); kwbar(); paint(); };
     tabsEl.appendChild(d);
+  });
+}
+
+function datebar(){
+  if(!datebarEl) return;
+  datebarEl.innerHTML='';
+  // 개시일 필터는 일반/사전/발주 탭에서만
+  if(S.tab==='관심'||S.tab==='숨김'){ return; }
+  var rows=(S.data[S.tab]||[]).filter(function(r){ return !S.hides[r.id]; });
+  var cnt={};
+  rows.forEach(function(r){ var d=r.reg||''; if(d) cnt[d]=(cnt[d]||0)+1; });
+  var days=Object.keys(cnt).sort().reverse();  // 최신 개시일 먼저
+  if(!days.length) return;
+  // 전체
+  var all=document.createElement('span');
+  all.className='dchip'+(S.date===''?' on':'');
+  all.innerHTML='전체<span class="n">'+rows.length+'</span>';
+  all.onclick=function(){ S.date=''; datebar(); paint(); };
+  datebarEl.appendChild(all);
+  days.forEach(function(d){
+    var c=document.createElement('span');
+    c.className='dchip'+(S.date===d?' on':'');
+    var md=d.slice(5).replace('-','/');
+    c.innerHTML=md+'<span class="n">'+cnt[d]+'</span>';
+    c.onclick=function(){ S.date=(S.date===d?'':d); datebar(); paint(); };
+    datebarEl.appendChild(c);
   });
 }
 
@@ -219,9 +250,15 @@ function paint(){
       return new Date(y,mo-1,da,hh,mm)>=now;
     });
   }
+  if(S.date) rows=rows.filter(function(r){ return r.reg===S.date; });
   if(S.kw) rows=rows.filter(function(r){ return String(r.hits||'').split('|').map(function(x){return x.trim();}).indexOf(S.kw)>=0; });
   if(q) rows=rows.filter(function(r){ return (r.title+' '+r.org).toLowerCase().indexOf(q)>=0; });
   rows.sort(function(a,b){
+    // 관심(별표)은 무조건 맨 앞 (일반/사전/발주 탭에서)
+    if(S.tab!=='관심' && S.tab!=='숨김'){
+      var sa=S.stars[a.id]?0:1, sb=S.stars[b.id]?0:1;
+      if(sa!==sb) return sa-sb;
+    }
     if(sort==='amt') return (b.amt||0)-(a.amt||0);
     if(sort==='amtA') return (a.amt||0)-(b.amt||0);
     return String(a.when).localeCompare(String(b.when));
@@ -229,16 +266,11 @@ function paint(){
   if(!rows.length){ rowsEl.innerHTML='<div class="empty">'+(S.tab==='관심'?'별표한 공고가 없다. ★ 를 눌러 저장.':S.tab==='숨김'?'숨긴 공고가 없다.':'해당 공고가 없다.')+'</div>'; return; }
   var now2=new Date();
   rowsEl.innerHTML=rows.map(function(r){
-    var on=!!S.stars[r.id], st=on?S.stars[r.id]:null;
+    var on=!!S.stars[r.id];
     var amt=r.amt?Number(r.amt).toLocaleString('ko-KR')+'원':'—';
     var title=r.url?'<a href="'+esc(r.url)+'" target="_blank" rel="noopener">'+esc(r.title)+'</a>':'<span>'+esc(r.title)+'</span>';
     var kw=r.hits?'<span class="kw">'+esc(r.hits)+'</span>':'';
-    var memo='';
-    if(on){
-      var by=st&&st.by?'<span class="by">'+esc(st.by)+'</span>':'';
-      memo=(st&&st.memo)?'<span class="memo" data-act="memo" data-id="'+esc(r.id)+'">📝 '+esc(st.memo)+by+'</span>'
-                        :'<span class="memo empty" data-act="memo" data-id="'+esc(r.id)+'">＋ 메모</span>';
-    }
+
     var soon='',w=String(r.when);
     if(w.length>=5&&w.charAt(2)==='/'){ var mo=parseInt(w.substr(0,2),10),da=parseInt(w.substr(3,2),10);
       if(mo>=1&&da>=1){ var dd=(new Date(now2.getFullYear(),mo-1,da)-now2)/86400000; if(dd>=0&&dd<=3)soon=' soon'; } }
@@ -247,7 +279,7 @@ function paint(){
       : '<span class="hidebtn" data-act="hide" data-id="'+esc(r.id)+'" data-title="'+esc(r.title)+'" title="숨기기">− 숨기기</span>';
     return '<div class="tr">'
       +'<div class="star'+(on?' on':'')+'" data-act="toggle" data-id="'+esc(r.id)+'">'+(on?'★':'☆')+'</div>'
-      +'<div class="c-title">'+title+kw+memo+hideBtn+'</div>'
+      +'<div class="c-title">'+title+kw+hideBtn+'</div>'
       +'<div class="c-org">'+esc(r.org)+'</div>'
       +'<div class="c-when'+soon+'">'+esc(r.when||'—')+'</div>'
       +'<div class="c-amt">'+amt+'</div>'
@@ -262,6 +294,7 @@ document.addEventListener('DOMContentLoaded', function(){
   rowsEl=document.getElementById('rows'); tabsEl=document.getElementById('tabs');
   lastEl=document.getElementById('last'); qEl=document.getElementById('q');
   sortEl=document.getElementById('sort'); kwbarEl=document.getElementById('kwbar');
+  var datebarEl=document.getElementById('datebar');
   drawer=document.getElementById('drawer'); overlay=document.getElementById('overlay');
 
   document.getElementById('filterBtn').onclick=openDrawer;
@@ -281,7 +314,7 @@ document.addEventListener('DOMContentLoaded', function(){
       exEl.disabled=false; exEl.placeholder='✕ 제외어 (콤마로 여러 개) Enter';
       if(!r||r.err){ alert('오류: '+((r&&r.err)||'응답없음')); return; }
       S.data=r.data||{}; S.stars=r.stars||{};
-      tabs(); kwbar(); paint();
+      tabs(); datebar(); kwbar(); paint();
     });
   });
 
@@ -304,11 +337,6 @@ document.addEventListener('DOMContentLoaded', function(){
     } else if(act==='unhide'){
       delete S.hides[id]; tabs(); paint();
       jsonp({action:'unhide',id:id}, function(h){ if(h&&!h.err){S.hides=h;tabs();paint();} });
-    } else if(act==='memo'){
-      var cur=(S.stars[id]&&S.stars[id].memo)||'';
-      var v=prompt('메모', cur); if(v===null) return;
-      if(S.stars[id]) S.stars[id].memo=v; paint();
-      jsonp({action:'memo',id:id,memo:v}, function(stars){ if(stars&&!stars.err){S.stars=stars;paint();} });
     }
   });
 
