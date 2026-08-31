@@ -131,6 +131,7 @@ function esc(s){ return String(s).replace(/[&<>"]/g,function(c){
 function jsonp(params, cb){
   var name = 'cb_' + Math.random().toString(36).slice(2);
   window[name] = function(res){ delete window[name]; document.body.removeChild(s); cb(res); };
+  params._ = Date.now();  // 캐시버스터
   var qs = Object.keys(params).map(function(k){ return k+'='+encodeURIComponent(params[k]); }).join('&');
   var s = document.createElement('script');
   s.src = API + '?' + qs + '&callback=' + name;
