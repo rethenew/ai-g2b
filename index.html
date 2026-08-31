@@ -184,7 +184,7 @@ function tabs(){
     d.className='tab'+(S.tab===k?' on':''); d.setAttribute('data-k',k);
     var label = k==='관심'?'★ 관심' : k==='숨김'?'— 숨김' : k;
     d.innerHTML=label+'<b>'+cnt+'</b>';
-    d.onclick=function(){ S.tab=k; S.kw=''; S.date=''; tabs(); datebar(); kwbar(); paint(); };
+    d.onclick=function(){ S.tab=k; S.kw=''; tabs(); datebar(); kwbar(); paint(); };
     tabsEl.appendChild(d);
   });
 }
@@ -198,7 +198,8 @@ function datebar(){
   var cnt={};
   rows.forEach(function(r){ var d=r.reg||''; if(d) cnt[d]=(cnt[d]||0)+1; });
   var days=Object.keys(cnt).sort().reverse();  // 최신 개시일 먼저
-  if(!days.length) return;
+  if(!days.length){ S.date=''; return; }
+  if(S.date && days.indexOf(S.date)<0) S.date='';  // 현재 탭에 없는 날짜면 전체로
   // 전체
   var all=document.createElement('span');
   all.className='dchip'+(S.date===''?' on':'');
