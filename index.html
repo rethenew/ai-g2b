@@ -175,7 +175,11 @@ function tabs(){
     var cnt;
     if(k==='관심') cnt=Object.keys(S.stars).length;
     else if(k==='숨김') cnt=Object.keys(S.hides).length;
-    else cnt=(S.data[k]||[]).filter(function(r){ return !S.hides[r.id]; }).length;
+    else cnt=(S.data[k]||[]).filter(function(r){
+      if(S.hides[r.id]) return false;
+      if(S.date && r.reg!==S.date) return false;   // 날짜 선택 시 그날 것만
+      return true;
+    }).length;
     var d=document.createElement('div');
     d.className='tab'+(S.tab===k?' on':''); d.setAttribute('data-k',k);
     var label = k==='관심'?'★ 관심' : k==='숨김'?'— 숨김' : k;
@@ -199,14 +203,14 @@ function datebar(){
   var all=document.createElement('span');
   all.className='dchip'+(S.date===''?' on':'');
   all.innerHTML='전체<span class="n">'+rows.length+'</span>';
-  all.onclick=function(){ S.date=''; datebar(); paint(); };
+  all.onclick=function(){ S.date=''; datebar(); tabs(); paint(); };
   datebarEl.appendChild(all);
   days.forEach(function(d){
     var c=document.createElement('span');
     c.className='dchip'+(S.date===d?' on':'');
     var md=d.slice(5).replace('-','/');
     c.innerHTML=md+'<span class="n">'+cnt[d]+'</span>';
-    c.onclick=function(){ S.date=(S.date===d?'':d); datebar(); paint(); };
+    c.onclick=function(){ S.date=(S.date===d?'':d); datebar(); tabs(); paint(); };
     datebarEl.appendChild(c);
   });
 }
