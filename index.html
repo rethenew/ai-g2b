@@ -122,7 +122,7 @@ var API = 'https://script.google.com/macros/s/AKfycbydPWnaxqJigOE3Y_DptoFvJe5vTv
 
 var S = { data:{}, stars:{}, hides:{}, tab:'일반공고', kw:'', date:'' };
 var ORDER = ['일반공고','사전규격','발주계획','관심','숨김'];
-var rowsEl, tabsEl, lastEl, qEl, sortEl, kwbarEl, drawer, overlay;
+var rowsEl, tabsEl, lastEl, qEl, sortEl, kwbarEl, datebarEl, drawer, overlay;
 
 function esc(s){ return String(s).replace(/[&<>"]/g,function(c){
   return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
@@ -295,7 +295,7 @@ document.addEventListener('DOMContentLoaded', function(){
   rowsEl=document.getElementById('rows'); tabsEl=document.getElementById('tabs');
   lastEl=document.getElementById('last'); qEl=document.getElementById('q');
   sortEl=document.getElementById('sort'); kwbarEl=document.getElementById('kwbar');
-  var datebarEl=document.getElementById('datebar');
+  datebarEl=document.getElementById('datebar');
   drawer=document.getElementById('drawer'); overlay=document.getElementById('overlay');
 
   document.getElementById('filterBtn').onclick=openDrawer;
