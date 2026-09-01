@@ -359,32 +359,50 @@ function paint(){
   renderRows(rows);
 }
 
+var PAGE=80;               // 한 번에 그리는 행 수
+var _allRows=[], _shown=0; // 현재 렌더 대상 전체 / 그린 개수
+
 function renderRows(rows){
-  if(!rows.length){ rowsEl.innerHTML='<div class="empty">'+(S.tab==='관심'?'별표한 공고가 없다. ★ 를 눌러 저장.':S.tab==='숨김'?'숨긴 공고가 없다.':'해당 공고가 없다.')+'</div>'; return; }
+  _allRows = rows;
+  _shown = 0;
+  if(!rows.length){
+    rowsEl.innerHTML='<div class="empty">'+(S.tab==='관심'?'별표한 공고가 없다. ★ 를 눌러 저장.':'해당 공고가 없다.')+'</div>';
+    return;
+  }
+  rowsEl.innerHTML='';
+  appendChunk();
+}
+
+function appendChunk(){
   var now2=new Date();
-  rowsEl.innerHTML=rows.map(function(r){
+  var end=Math.min(_shown+PAGE, _allRows.length);
+  var html='';
+  for(var i=_shown;i<end;i++){
+    var r=_allRows[i];
     var on=!!S.stars[r.id];
     var amt=r.amt?Number(r.amt).toLocaleString('ko-KR')+'원':'—';
     var title=r.url?'<a href="'+esc(r.url)+'" target="_blank" rel="noopener">'+esc(r.title)+'</a>':'<span>'+esc(r.title)+'</span>';
     var kw=r.hits?'<span class="kw">'+esc(r.hits)+'</span>':'';
-
     var soon='',w=String(r.when);
     if(w.length>=5&&w.charAt(2)==='/'){ var mo=parseInt(w.substr(0,2),10),da=parseInt(w.substr(3,2),10);
       if(mo>=1&&da>=1){ var dd=(new Date(now2.getFullYear(),mo-1,da)-now2)/86400000; if(dd>=0&&dd<=3)soon=' soon'; } }
-    var hideBtn = '<span class="hidebtn" data-act="hide" data-id="'+esc(r.id)+'" data-title="'+esc(r.title)+'" title="이 목록에서 숨기기">− 숨기기</span>';
-    var orgReg = (S.orgs.indexOf(r.org)>=0)
+    var hideBtn='<span class="hidebtn" data-act="hide" data-id="'+esc(r.id)+'" data-title="'+esc(r.title)+'" title="이 목록에서 숨기기">− 숨기기</span>';
+    var orgReg=(S.orgs.indexOf(r.org)>=0)
       ? '<span class="orgbtn on" data-act="orgdel" data-word="'+esc(r.org)+'" title="발주처 해제">🏢 발주처✓</span>'
       : '<span class="orgbtn" data-act="orgadd" data-word="'+esc(r.org)+'" title="이 발주처 등록">🏢 발주처</span>';
-    var recBadge = (r.rec>=3) ? '<span class="recbadge hot">✦ 강추</span>' : (r.rec===2) ? '<span class="recbadge">✦ 추천</span>' : '';
-    return '<div class="tr">'
+    var recBadge=(r.rec>=3)?'<span class="recbadge hot">✦ 강추</span>':(r.rec===2)?'<span class="recbadge">✦ 추천</span>':'';
+    html+='<div class="tr">'
       +'<div class="star'+(on?' on':'')+'" data-act="toggle" data-id="'+esc(r.id)+'">'+(on?'★':'☆')+'</div>'
       +'<div class="c-title">'+recBadge+title+kw+'<span class="rowbtns">'+hideBtn+orgReg+'</span></div>'
       +'<div class="c-org">'+esc(r.org)+'</div>'
       +'<div class="c-when'+soon+'">'+esc(r.when||'—')+'</div>'
       +'<div class="c-amt">'+amt+'</div>'
       +'<div class="c-mthd">'+esc(r.mthd)+'</div></div>';
-  }).join('');
+  }
+  rowsEl.insertAdjacentHTML('beforeend', html);
+  _shown=end;
 }
+
 
 
 function openDrawer(){ drawer.classList.add('open'); overlay.classList.add('open'); }
@@ -460,6 +478,11 @@ function init(){
       var ix=S.orgs.indexOf(w2); if(ix>=0) S.orgs.splice(ix,1); tabs(); paint();
       jsonp({action:'orgdel',word:w2}, function(o){ if(o&&!o.err){S.orgs=o;tabs();paint();} });
     }
+  });
+
+  window.addEventListener('scroll', function(){
+    if(_shown>=_allRows.length) return;
+    if(window.innerHeight+window.scrollY >= document.body.offsetHeight-600) appendChunk();
   });
 
   if(API.indexOf('PASTE_')===0){
