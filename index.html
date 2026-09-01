@@ -108,6 +108,13 @@
   <div class="toolbar">
     <input id="q" placeholder="공고명 · 기관 검색">
     <input id="ex" class="exinput" placeholder="✕ 제외어 (콤마로 여러 개) Enter">
+    <div class="sort">계약
+      <select id="mthd">
+        <option value="">전체</option>
+        <option value="수의">수의계약</option>
+        <option value="경쟁">경쟁입찰</option>
+      </select>
+    </div>
     <div class="sort">정렬
       <select id="sort">
         <option value="when">마감 임박순</option>
@@ -142,9 +149,9 @@
 // ★★★ 여기에 Apps Script 웹앱 URL 을 붙여넣으세요 (/exec 로 끝나는 것) ★★★
 var API = 'https://script.google.com/macros/s/AKfycbydPWnaxqJigOE3Y_DptoFvJe5vTvDm06bx8F_9qK6ppvEf2tvI70JH2z1ou7g-IdQd/exec';
 
-var S = { data:{}, stars:{}, hides:{}, orgs:[], tab:'일반공고', kw:'', date:'' };
+var S = { data:{}, stars:{}, hides:{}, orgs:[], tab:'일반공고', kw:'', date:'', mthd:'' };
 var ORDER = ['일반공고','사전규격','발주계획','추천','관심','발주처'];
-var rowsEl, tabsEl, lastEl, qEl, sortEl, kwbarEl, datebarEl, drawer, overlay;
+var rowsEl, tabsEl, lastEl, qEl, sortEl, mthdEl, kwbarEl, datebarEl, drawer, overlay;
 
 function esc(s){ return String(s).replace(/[&<>"]/g,function(c){
   return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
@@ -309,9 +316,16 @@ function kwbar(){
   });
 }
 
+function mthdMatch(r){
+  var m=String(r.mthd||'');
+  if(S.mthd==='수의') return m.indexOf('수의')>=0;
+  if(S.mthd==='경쟁') return m.indexOf('경쟁')>=0;
+  return true;
+}
 function paint(){
   var q=(qEl.value||'').trim().toLowerCase();
   var sort=sortEl.value;
+  S.mthd=mthdEl?mthdEl.value:'';
   var rows;
   if(S.tab==='관심') rows=starred();
   else if(S.tab==='추천') rows=recRows();
@@ -319,6 +333,7 @@ function paint(){
   else rows=(S.data[S.tab]||[]).slice();
   // 관심/추천/발주처: 개찰·날짜 필터 없이 검색·정렬만
   if(S.tab==='관심'||S.tab==='추천'||S.tab==='발주처'){
+    if(S.mthd) rows=rows.filter(mthdMatch);
     if(q) rows=rows.filter(function(r){ return (r.title+' '+r.org).toLowerCase().indexOf(q)>=0; });
     rows.sort(function(a,b){
       if(S.tab==='추천'){ var ra=a.rec||0, rb=b.rec||0; if(ra!==rb) return rb-ra; }
@@ -344,6 +359,7 @@ function paint(){
     });
   }
   if(S.date) rows=rows.filter(function(r){ return r.reg===S.date; });
+  if(S.mthd) rows=rows.filter(mthdMatch);
   if(S.kw) rows=rows.filter(function(r){ return String(r.hits||'').split('|').map(function(x){return x.trim();}).indexOf(S.kw)>=0; });
   if(q) rows=rows.filter(function(r){ return (r.title+' '+r.org).toLowerCase().indexOf(q)>=0; });
   rows.sort(function(a,b){
@@ -411,7 +427,7 @@ function closeDrawer(){ drawer.classList.remove('open'); overlay.classList.remov
 function init(){
   rowsEl=document.getElementById('rows'); tabsEl=document.getElementById('tabs');
   lastEl=document.getElementById('last'); qEl=document.getElementById('q');
-  sortEl=document.getElementById('sort'); kwbarEl=document.getElementById('kwbar');
+  sortEl=document.getElementById('sort'); mthdEl=document.getElementById('mthd'); kwbarEl=document.getElementById('kwbar');
   datebarEl=document.getElementById('datebar');
   (function(){
     var down=false, startX=0, startL=0;
@@ -425,7 +441,7 @@ function init(){
   document.getElementById('filterBtn').onclick=openDrawer;
   document.getElementById('drawerClose').onclick=closeDrawer;
   overlay.onclick=closeDrawer;
-  qEl.oninput=paint; sortEl.onchange=paint;
+  qEl.oninput=paint; sortEl.onchange=paint; if(mthdEl) mthdEl.onchange=paint;
 
   var orgin=document.getElementById('orgin');
   var orgaddbtn=document.getElementById('orgaddbtn');
