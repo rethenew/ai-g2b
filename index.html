@@ -70,6 +70,17 @@
   .kwbar .kchip{font-size:12px;padding:5px 11px;border:1px solid var(--line);background:var(--card);color:var(--steel);border-radius:20px;cursor:pointer;font-weight:600}
   .kwbar .kchip.on{background:var(--live);color:#fff;border-color:var(--live)}
   .kwbar .clear{font-size:12px;padding:5px 11px;color:var(--alert);cursor:pointer;border:1px dashed var(--alert);border-radius:20px;width:100%;text-align:center}
+  .memomodal{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;display:none;align-items:center;justify-content:center}
+  .memomodal.open{display:flex}
+  .memobox{background:var(--card);border-radius:8px;padding:20px;width:90%;max-width:440px;box-shadow:0 8px 30px rgba(0,0,0,.2)}
+  .memottl{font-size:14px;font-weight:800;margin-bottom:12px}
+  .memobox textarea{width:100%;font:inherit;font-size:14px;padding:11px;border:1px solid var(--line);border-radius:5px;resize:vertical;line-height:1.6;min-height:90px}
+  .memobox textarea:focus{outline:2px solid var(--spec);outline-offset:-1px}
+  .memobtns{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+  .memocancel,.memosave{font:inherit;font-size:13px;font-weight:700;cursor:pointer;padding:9px 18px;border-radius:5px;border:1px solid}
+  .memocancel{background:var(--card);color:var(--steel);border-color:var(--line)}
+  .memosave{background:var(--spec);color:#fff;border-color:var(--spec)}
+  .c-memo{white-space:normal;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;line-height:1.4;max-height:none}
   .tbl{background:var(--card);border:1px solid var(--line);border-radius:3px;overflow:hidden}
   .th,.tr{display:grid;grid-template-columns:34px 1fr 190px 180px 108px 118px 78px;align-items:center}
   .th{background:#F0F3F1;border-bottom:2px solid var(--ink);font-size:11px;font-weight:800;color:var(--steel)}
@@ -156,6 +167,16 @@
     <div class="kwbar" id="kwbar"></div>
   </div>
   <div id="overlay" class="overlay"></div>
+  <div id="memomodal" class="memomodal">
+    <div class="memobox">
+      <div class="memottl">메모</div>
+      <textarea id="memotext" rows="4" placeholder="메모를 입력하세요 (여러 줄 가능)"></textarea>
+      <div class="memobtns">
+        <button id="memocancel" class="memocancel">취소</button>
+        <button id="memosave" class="memosave">저장</button>
+      </div>
+    </div>
+  </div>
   <div class="tbl">
     <div class="th">
       <div style="text-align:center">★</div>
@@ -263,6 +284,7 @@ function tabs(){
     else if(k==='보관') cnt=Object.keys(S.keeps).length;
     else cnt=(S.data[k]||[]).filter(function(r){
       if(S.hides[r.id]) return false;
+      if(S.keeps[r.id]) return false;
       if(S.date && r.reg!==S.date) return false;
       return true;
     }).length;
@@ -320,7 +342,7 @@ function datebar(){
   datebarEl.innerHTML='';
   // 개시일 필터는 일반/사전/발주 탭에서만
   if(S.tab==='관심'||S.tab==='숨김'){ return; }
-  var rows=(S.data[S.tab]||[]).filter(function(r){ return !S.hides[r.id]; });
+  var rows=(S.data[S.tab]||[]).filter(function(r){ return !S.hides[r.id] && !S.keeps[r.id]; });
   var cnt={};
   rows.forEach(function(r){ var d=r.reg||''; if(d) cnt[d]=(cnt[d]||0)+1; });
   var days=Object.keys(cnt).sort().reverse();  // 최신 개시일 먼저
@@ -388,8 +410,8 @@ function paint(){
     });
     renderRows(rows); return;
   }
-  // 일반 탭: 숨긴 항목 제외 (단 검색 중이면 숨김도 노출)
-  if(!q) rows=rows.filter(function(r){ return !S.hides[r.id]; });
+  // 일반 탭: 숨김·보관 항목 제외 (단 검색 중이면 노출)
+  if(!q) rows=rows.filter(function(r){ return !S.hides[r.id] && !S.keeps[r.id]; });
   if(S.tab==='일반공고'||S.tab==='사전규격'){
     var now=new Date(), yr=now.getFullYear();
     rows=rows.filter(function(r){
@@ -546,6 +568,24 @@ function init(){
     });
   });
 
+  var memomodal=document.getElementById('memomodal');
+  var memotext=document.getElementById('memotext');
+  var _memoId=null;
+  window.openMemo=function(id){
+    _memoId=id;
+    memotext.value=(S.memos[id]&&S.memos[id].memo)||'';
+    memomodal.classList.add('open');
+    setTimeout(function(){ memotext.focus(); },50);
+  };
+  document.getElementById('memocancel').onclick=function(){ memomodal.classList.remove('open'); };
+  memomodal.onclick=function(e){ if(e.target===memomodal) memomodal.classList.remove('open'); };
+  document.getElementById('memosave').onclick=function(){
+    var v=memotext.value; var id=_memoId;
+    if(v.trim()==='') delete S.memos[id]; else S.memos[id]={memo:v,by:''};
+    memomodal.classList.remove('open'); paint();
+    jsonp({action:'memo',id:id,memo:v}, function(){});
+  };
+
   rowsEl.addEventListener('click', function(e){
     var t=e.target;
     while(t && t!==rowsEl && !t.getAttribute('data-act')) t=t.parentNode;
@@ -564,19 +604,15 @@ function init(){
       // 서버엔 저장만. 응답으로 로컬을 덮어쓰지 않는다(경합/캐시로 되살아나는 것 방지)
       jsonp({action:'hide',id:id,title:ti}, function(h){ if(h&&!h.err){ mergeHides(h); /* 화면 다시 안 그림: 이미 로컬 반영됨 */ } });
     } else if(act==='memo'){
-      var cur=(S.memos[id]&&S.memos[id].memo)||'';
-      var v=prompt('메모 (비우면 삭제)', cur);
-      if(v===null) return;
-      if(v.trim()==='') delete S.memos[id]; else S.memos[id]={memo:v,by:''};
-      paint();
-      jsonp({action:'memo',id:id,memo:v}, function(m){ if(m&&!m.err){ S.memos=m; } });
+      openMemo(id);
     } else if(act==='keep'){
       var ki={ id:id, kind:t.getAttribute('data-kind')||'', title:t.getAttribute('data-title')||'', org:t.getAttribute('data-org')||'', when:t.getAttribute('data-when')||'', amt:t.getAttribute('data-amt')||0, url:t.getAttribute('data-url')||'' };
-      S.keeps[id]={title:ki.title,org:ki.org,when:ki.when,amt:Number(ki.amt)||0,url:ki.url}; tabs(); paint();
-      jsonp({action:'keep',id:id,kind:ki.kind,title:ki.title,org:ki.org,when:ki.when,amt:ki.amt,url:ki.url}, function(kp){ if(kp&&!kp.err){S.keeps=kp;} });
+      S.keeps[id]={title:ki.title,org:ki.org,when:ki.when,amt:Number(ki.amt)||0,url:ki.url}; tabs(); datebar(); paint();
+      // 서버 저장만. 응답으로 로컬 덮어쓰지 않음(초기화 방지)
+      jsonp({action:'keep',id:id,kind:ki.kind,title:ki.title,org:ki.org,when:ki.when,amt:ki.amt,url:ki.url}, function(){});
     } else if(act==='keepdel'){
-      delete S.keeps[id]; tabs(); paint();
-      jsonp({action:'keep',id:id}, function(kp){ if(kp&&!kp.err){S.keeps=kp;} });
+      delete S.keeps[id]; tabs(); datebar(); paint();
+      jsonp({action:'keep',id:id}, function(){});
     } else if(act==='orgadd'){
       var w=t.getAttribute('data-word')||''; if(!w) return;
       if(S.orgs.indexOf(w)<0) S.orgs.push(w); tabs(); paint();
