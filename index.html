@@ -55,6 +55,14 @@
   .orgchips .oc{font-size:12px;padding:4px 6px 4px 10px;border:1px solid #CBE3D9;background:#F0F7F4;color:var(--live);border-radius:14px;display:flex;align-items:center;gap:5px}
   .orgchips .oc .x{cursor:pointer;font-weight:700;color:var(--mist)}
   .orgchips .oc .x:hover{color:var(--alert)}
+  .hidekwsec{padding:16px;border-top:1px solid var(--line2)}
+  .hidekwlbl{font-size:12px;font-weight:800;color:var(--steel);margin-bottom:9px}
+  .hidekwbtn{font:inherit;font-size:12px;font-weight:700;cursor:pointer;padding:8px 12px;border:1px solid var(--steel);background:var(--card);color:var(--steel);border-radius:3px}
+  .hidekwbtn:hover{background:var(--steel);color:#fff}
+  .hidekwresult{margin-top:10px;display:flex;flex-wrap:wrap;gap:5px}
+  .hidekwresult .hk{font-size:12px;padding:4px 9px;border:1px solid #EFD9D5;background:#FDF4F3;color:var(--alert);border-radius:14px;cursor:pointer}
+  .hidekwresult .hk:hover{background:var(--alert);color:#fff;border-color:var(--alert)}
+  .hidekwresult .note{font-size:11px;color:var(--mist);width:100%;line-height:1.6}
   .kwbar{display:flex;flex-wrap:wrap;gap:6px;padding:16px}
   .kwbar .kchip{font-size:12px;padding:5px 11px;border:1px solid var(--line);background:var(--card);color:var(--steel);border-radius:20px;cursor:pointer;font-weight:600}
   .kwbar .kchip.on{background:var(--live);color:#fff;border-color:var(--live)}
@@ -130,6 +138,11 @@
       <div class="orgrow"><input id="orgin" placeholder="발주처명 입력 후 Enter"><button id="orgaddbtn" class="orgaddbtn">추가</button></div>
       <div class="orgchips" id="orgchips"></div>
     </div>
+    <div class="hidekwsec">
+      <div class="hidekwlbl">— 숨긴 공고에서 제외어 뽑기</div>
+      <button id="hidekwbtn" class="hidekwbtn">숨김 목록 분석</button>
+      <div class="hidekwresult" id="hidekwresult"></div>
+    </div>
     <div class="kwlbl2">키워드 필터</div>
     <div class="kwbar" id="kwbar"></div>
   </div>
@@ -167,6 +180,15 @@ function jsonp(params, cb){
   s.onerror = function(){ delete window[name]; cb({err:'네트워크 오류'}); };
   document.body.appendChild(s);
 }
+// 서버 hides를 로컬에 병합 (로컬에 이미 숨긴 건 유지, 서버에만 있는 것 추가)
+function mergeHides(server){
+  for(var k in server){ S.hides[k]=1; }
+}
+function mergeStars(server){
+  // 서버 관심목록을 로컬에 반영하되, 화면은 다시 그리지 않음(깜빡임 방지)
+  S.stars = server;
+}
+
 
 function load(){
   jsonp({action:'load'}, function(r){
@@ -443,6 +465,29 @@ function init(){
   overlay.onclick=closeDrawer;
   qEl.oninput=paint; sortEl.onchange=paint; if(mthdEl) mthdEl.onchange=paint;
 
+  var hidekwbtn=document.getElementById('hidekwbtn');
+  var hidekwresult=document.getElementById('hidekwresult');
+  if(hidekwbtn) hidekwbtn.onclick=function(){
+    hidekwbtn.disabled=true; hidekwbtn.textContent='분석 중…';
+    jsonp({action:'hidekw'}, function(r){
+      hidekwbtn.disabled=false; hidekwbtn.textContent='숨김 목록 분석';
+      if(!r||r.err){ hidekwresult.innerHTML='<span class="note">오류</span>'; return; }
+      if(!r.words||!r.words.length){ hidekwresult.innerHTML='<span class="note">숨긴 공고 '+(r.total||0)+'건. 반복 키워드 없음.</span>'; return; }
+      hidekwresult.innerHTML='<span class="note">숨긴 '+r.total+'건에서 자주 나온 단어. 클릭하면 제외어로 등록(즉시 삭제).</span>';
+      r.words.forEach(function(o){
+        var s=document.createElement('span'); s.className='hk'; s.textContent=o.word+' '+o.count;
+        s.onclick=function(){
+          if(!confirm('["'+o.word+'"] 가 포함된 공고를 삭제하고 제외어로 등록합니다. 진행할까요?')) return;
+          s.style.opacity='0.4'; s.textContent=o.word+' 처리중';
+          jsonp({action:'exclude',word:o.word}, function(rr){
+            if(rr&&!rr.err){ S.data=rr.data||{}; S.stars=rr.stars||{}; s.remove(); tabs(); datebar(); kwbar(); paint(); }
+          });
+        };
+        hidekwresult.appendChild(s);
+      });
+    });
+  };
+
   var orgin=document.getElementById('orgin');
   var orgaddbtn=document.getElementById('orgaddbtn');
   function addOrg(){
@@ -480,11 +525,12 @@ function init(){
       if(S.stars[id]) delete S.stars[id]; else S.stars[id]={by:'',memo:''};
       tabs(); paint();
       jsonp({action:'star',id:id,kind:f.kind,title:it.title,org:it.org,when:it.when,amt:it.amt,url:it.url},
-        function(stars){ if(stars&&!stars.err){S.stars=stars;tabs();paint();} });
+        function(stars){ if(stars&&!stars.err){ mergeStars(stars); } });
     } else if(act==='hide'){
       var ti=t.getAttribute('data-title')||'';
       S.hides[id]=1; tabs(); paint();
-      jsonp({action:'hide',id:id,title:ti}, function(h){ if(h&&!h.err){S.hides=h;tabs();paint();} });
+      // 서버엔 저장만. 응답으로 로컬을 덮어쓰지 않는다(경합/캐시로 되살아나는 것 방지)
+      jsonp({action:'hide',id:id,title:ti}, function(h){ if(h&&!h.err){ mergeHides(h); /* 화면 다시 안 그림: 이미 로컬 반영됨 */ } });
     } else if(act==='orgadd'){
       var w=t.getAttribute('data-word')||''; if(!w) return;
       if(S.orgs.indexOf(w)<0) S.orgs.push(w); tabs(); paint();
