@@ -462,7 +462,7 @@ function appendChunk(){
       : '<div class="c-memo" data-act="memo" data-id="'+esc(r.id)+'">＋ 메모</div>';
     html+='<div class="tr">'
       +'<div class="star'+(on?' on':'')+'" data-act="toggle" data-id="'+esc(r.id)+'">'+(on?'★':'☆')+'</div>'
-      +'<div class="c-title">'+recBadge+title+kw+'<span class="rowbtns">'+hideBtn+orgReg+'</span></div>'
+      +'<div class="c-title">'+recBadge+title+kw+'<span class="rowbtns">'+hideBtn+keepBtn+orgReg+'</span></div>'
       +memoCell
       +'<div class="c-org">'+esc(r.org)+'</div>'
       +'<div class="c-when'+soon+'">'+esc(r.when||'—')+'</div>'
