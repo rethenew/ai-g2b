@@ -203,6 +203,26 @@ function allRows(){
   return out;
 }
 
+function tabs(){
+  tabsEl.innerHTML='';
+  ORDER.forEach(function(k){
+    var cnt;
+    if(k==='관심') cnt=Object.keys(S.stars).length;
+    else if(k==='추천') cnt=recRows().length;
+    else if(k==='발주처') cnt=orgRows().length;
+    else cnt=(S.data[k]||[]).filter(function(r){
+      if(S.hides[r.id]) return false;
+      if(S.date && r.reg!==S.date) return false;
+      return true;
+    }).length;
+    var d=document.createElement('div');
+    d.className='tab'+(S.tab===k?' on':''); d.setAttribute('data-k',k);
+    var label = k==='관심'?'★ 관심' : k==='추천'?'✦ 추천' : k==='발주처'?'🏢 발주처' : k;
+    d.innerHTML=label+'<b>'+cnt+'</b>';
+    d.onclick=function(){ S.tab=k; S.kw=''; tabs(); datebar(); kwbar(); paint(); };
+    tabsEl.appendChild(d);
+  });
+}
 function allLive(){
   var out=[];
   ['일반공고','사전규격','발주계획'].forEach(function(k){ (S.data[k]||[]).forEach(function(r){ out.push(r); }); });
