@@ -31,6 +31,9 @@
   .tab[data-k="사전규격"].on{background:var(--spec)}
   .tab[data-k="발주계획"].on{background:var(--plan)}
   .tab[data-k="관심"].on{background:var(--star);color:#3A2E00}
+  .tab[data-k="추천"].on{background:var(--spec);color:#fff}
+  .tab[data-k="발주처"].on{background:var(--live);color:#fff}
+  .tab[data-k="보관"].on{background:#5B6B78;color:#fff}
   .tab b{margin-left:5px;font-variant-numeric:tabular-nums}
   .toolbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
   .toolbar input{flex:1;min-width:160px;font:inherit;font-size:13px;padding:9px 11px;border:1px solid var(--line);background:var(--card);border-radius:3px}
@@ -81,6 +84,9 @@
   .orgbtn{color:var(--live);border-color:#CBE3D9}
   .orgbtn:hover{color:#fff;background:var(--live);border-color:var(--live)}
   .orgbtn.on{color:#fff;background:var(--live);border-color:var(--live)}
+  .keepbtn{display:inline-block;font-size:11px;font-weight:700;color:#5B6B78;cursor:pointer;user-select:none;padding:2px 8px;border:1px solid #C5CDD3;border-radius:12px}
+  .keepbtn:hover{color:#fff;background:#5B6B78;border-color:#5B6B78}
+  .keepbtn.on{color:#fff;background:#5B6B78;border-color:#5B6B78}
   .recbadge{display:inline-block;font-size:10px;font-weight:800;color:#fff;background:var(--spec);padding:2px 7px;border-radius:10px;margin-right:6px;vertical-align:middle}
   .recbadge.hot{background:var(--alert)}
   .c-title{font-weight:600;line-height:1.4;min-width:0}
@@ -167,8 +173,8 @@
 // ★★★ 여기에 Apps Script 웹앱 URL 을 붙여넣으세요 (/exec 로 끝나는 것) ★★★
 var API = 'https://script.google.com/macros/s/AKfycbydPWnaxqJigOE3Y_DptoFvJe5vTvDm06bx8F_9qK6ppvEf2tvI70JH2z1ou7g-IdQd/exec';
 
-var S = { data:{}, stars:{}, hides:{}, orgs:[], memos:{}, tab:'일반공고', kw:'', date:'', mthd:'' };
-var ORDER = ['일반공고','사전규격','발주계획','추천','관심','발주처'];
+var S = { data:{}, stars:{}, hides:{}, orgs:[], memos:{}, keeps:{}, tab:'일반공고', kw:'', date:'', mthd:'' };
+var ORDER = ['일반공고','사전규격','발주계획','추천','관심','발주처','보관'];
 var rowsEl, tabsEl, lastEl, qEl, sortEl, mthdEl, kwbarEl, datebarEl, drawer, overlay;
 
 function esc(s){ return String(s).replace(/[&<>"]/g,function(c){
@@ -198,7 +204,7 @@ function mergeStars(server){
 function load(){
   jsonp({action:'load'}, function(r){
     if(!r || r.err){ rowsEl.innerHTML='<div class="empty" style="color:#C0392B">오류: '+esc((r&&r.err)||'응답없음')+'</div>'; return; }
-    S.data=r.data||{}; S.stars=r.stars||{}; S.hides=r.hides||{}; S.orgs=r.orgs||[]; S.memos=r.memos||{};
+    S.data=r.data||{}; S.stars=r.stars||{}; S.hides=r.hides||{}; S.orgs=r.orgs||[]; S.memos=r.memos||{}; S.keeps=r.keeps||{};
     lastEl.textContent='· 수집 '+(r.last||'');
     tabs(); datebar(); kwbar(); orgchips(); paint();
   });
@@ -210,6 +216,16 @@ function starred(){
   Object.keys(S.stars).forEach(function(id){
     var s=S.stars[id];
     // 현재 데이터에 살아있으면 그걸(reg/hits 최신) 쓰고, 없으면 시트 저장분
+    var live=findRaw(id);
+    if(live) out.push(live);
+    else out.push({ id:id, title:s.title||'', org:s.org||'', mthd:'', amt:s.amt||0, when:s.when||'', reg:'', hits:'', url:s.url||'' });
+  });
+  return out;
+}
+function keepRows(){
+  var out=[];
+  Object.keys(S.keeps).forEach(function(id){
+    var s=S.keeps[id];
     var live=findRaw(id);
     if(live) out.push(live);
     else out.push({ id:id, title:s.title||'', org:s.org||'', mthd:'', amt:s.amt||0, when:s.when||'', reg:'', hits:'', url:s.url||'' });
@@ -244,6 +260,7 @@ function tabs(){
     if(k==='관심') cnt=Object.keys(S.stars).length;
     else if(k==='추천') cnt=recRows().length;
     else if(k==='발주처') cnt=orgRows().length;
+    else if(k==='보관') cnt=Object.keys(S.keeps).length;
     else cnt=(S.data[k]||[]).filter(function(r){
       if(S.hides[r.id]) return false;
       if(S.date && r.reg!==S.date) return false;
@@ -251,7 +268,7 @@ function tabs(){
     }).length;
     var d=document.createElement('div');
     d.className='tab'+(S.tab===k?' on':''); d.setAttribute('data-k',k);
-    var label = k==='관심'?'★ 관심' : k==='추천'?'✦ 추천' : k==='발주처'?'🏢 발주처' : k;
+    var label = k==='관심'?'★ 관심' : k==='추천'?'✦ 추천' : k==='발주처'?'🏢 발주처' : k==='보관'?'📁 보관' : k;
     d.innerHTML=label+'<b>'+cnt+'</b>';
     d.onclick=function(){ S.tab=k; S.kw=''; tabs(); datebar(); kwbar(); paint(); };
     tabsEl.appendChild(d);
@@ -357,9 +374,10 @@ function paint(){
   if(S.tab==='관심') rows=starred();
   else if(S.tab==='추천') rows=recRows();
   else if(S.tab==='발주처') rows=orgRows();
+  else if(S.tab==='보관') rows=keepRows();
   else rows=(S.data[S.tab]||[]).slice();
   // 관심/추천/발주처: 개찰·날짜 필터 없이 검색·정렬만
-  if(S.tab==='관심'||S.tab==='추천'||S.tab==='발주처'){
+  if(S.tab==='관심'||S.tab==='추천'||S.tab==='발주처'||S.tab==='보관'){
     if(S.mthd) rows=rows.filter(mthdMatch);
     if(q) rows=rows.filter(function(r){ return (r.title+' '+r.org).toLowerCase().indexOf(q)>=0; });
     rows.sort(function(a,b){
@@ -429,7 +447,11 @@ function appendChunk(){
     var soon='',w=String(r.when);
     if(w.length>=5&&w.charAt(2)==='/'){ var mo=parseInt(w.substr(0,2),10),da=parseInt(w.substr(3,2),10);
       if(mo>=1&&da>=1){ var dd=(new Date(now2.getFullYear(),mo-1,da)-now2)/86400000; if(dd>=0&&dd<=3)soon=' soon'; } }
-    var hideBtn='<span class="hidebtn" data-act="hide" data-id="'+esc(r.id)+'" data-title="'+esc(r.title)+'" title="이 목록에서 숨기기">− 숨기기</span>';
+    var hideBtn='<span class="hidebtn" data-act="hide" data-id="'+esc(r.id)+'" data-title="'+esc(r.title)+'" title="목록에서 숨기기(삭제)">− 숨기기</span>';
+    var kept=!!S.keeps[r.id];
+    var keepBtn=kept
+      ? '<span class="keepbtn on" data-act="keepdel" data-id="'+esc(r.id)+'" title="보관 해제">📁 보관✓</span>'
+      : '<span class="keepbtn" data-act="keep" data-id="'+esc(r.id)+'" data-title="'+esc(r.title)+'" data-kind="'+esc(S.tab)+'" data-org="'+esc(r.org)+'" data-when="'+esc(r.when)+'" data-amt="'+(r.amt||0)+'" data-url="'+esc(r.url)+'" title="다음에 보기">📁 보관</span>';
     var orgReg=(S.orgs.indexOf(r.org)>=0)
       ? '<span class="orgbtn on" data-act="orgdel" data-word="'+esc(r.org)+'" title="발주처 해제">🏢 발주처✓</span>'
       : '<span class="orgbtn" data-act="orgadd" data-word="'+esc(r.org)+'" title="이 발주처 등록">🏢 발주처</span>';
@@ -548,6 +570,13 @@ function init(){
       if(v.trim()==='') delete S.memos[id]; else S.memos[id]={memo:v,by:''};
       paint();
       jsonp({action:'memo',id:id,memo:v}, function(m){ if(m&&!m.err){ S.memos=m; } });
+    } else if(act==='keep'){
+      var ki={ id:id, kind:t.getAttribute('data-kind')||'', title:t.getAttribute('data-title')||'', org:t.getAttribute('data-org')||'', when:t.getAttribute('data-when')||'', amt:t.getAttribute('data-amt')||0, url:t.getAttribute('data-url')||'' };
+      S.keeps[id]={title:ki.title,org:ki.org,when:ki.when,amt:Number(ki.amt)||0,url:ki.url}; tabs(); paint();
+      jsonp({action:'keep',id:id,kind:ki.kind,title:ki.title,org:ki.org,when:ki.when,amt:ki.amt,url:ki.url}, function(kp){ if(kp&&!kp.err){S.keeps=kp;} });
+    } else if(act==='keepdel'){
+      delete S.keeps[id]; tabs(); paint();
+      jsonp({action:'keep',id:id}, function(kp){ if(kp&&!kp.err){S.keeps=kp;} });
     } else if(act==='orgadd'){
       var w=t.getAttribute('data-word')||''; if(!w) return;
       if(S.orgs.indexOf(w)<0) S.orgs.push(w); tabs(); paint();
