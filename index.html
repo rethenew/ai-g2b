@@ -68,7 +68,7 @@
   .kwbar .kchip.on{background:var(--live);color:#fff;border-color:var(--live)}
   .kwbar .clear{font-size:12px;padding:5px 11px;color:var(--alert);cursor:pointer;border:1px dashed var(--alert);border-radius:20px;width:100%;text-align:center}
   .tbl{background:var(--card);border:1px solid var(--line);border-radius:3px;overflow:hidden}
-  .th,.tr{display:grid;grid-template-columns:34px 1fr 180px 108px 118px 78px;align-items:center}
+  .th,.tr{display:grid;grid-template-columns:34px 1fr 190px 180px 108px 118px 78px;align-items:center}
   .th{background:#F0F3F1;border-bottom:2px solid var(--ink);font-size:11px;font-weight:800;color:var(--steel)}
   .th>div,.tr>div{padding:11px 12px}
   .tr{border-bottom:1px solid var(--line2);font-size:13px}
@@ -89,6 +89,9 @@
   .memo{display:inline-block;margin-top:5px;font-size:11px;color:var(--spec);background:#FCF6E9;padding:3px 7px;border-radius:3px;cursor:pointer}
   .memo.empty{color:var(--mist);background:transparent;border:1px dashed var(--line)}
   .by{font-size:10px;color:var(--mist);margin-left:6px}
+  .c-memo{font-size:12px;color:var(--mist);cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:6px 8px;border:1px dashed transparent;border-radius:4px}
+  .c-memo:hover{border-color:var(--line);background:#FAFBFA}
+  .c-memo.has{color:var(--spec);background:#FCF6E9;border:1px solid #EFE3C8;font-weight:500}
   .c-org{font-size:12px;color:var(--steel)}
   .c-when{font-size:12px;font-variant-numeric:tabular-nums}
   .c-when.soon{color:var(--alert);font-weight:700}
@@ -100,7 +103,7 @@
     .th{display:none}
     .tr{grid-template-columns:30px 1fr;gap:2px 8px;padding:11px 12px}
     .tr>div{padding:1px 0}
-    .c-org,.c-when,.c-amt,.c-mthd{grid-column:2}
+    .c-memo,.c-org,.c-when,.c-amt,.c-mthd{grid-column:2}
     .c-amt{text-align:left}
   }
 </style>
@@ -150,7 +153,9 @@
   <div class="tbl">
     <div class="th">
       <div style="text-align:center">★</div>
-      <div>사업명 / 공고명</div><div>기관</div>
+      <div>사업명 / 공고명</div>
+      <div>메모</div>
+      <div>기관</div>
       <div>마감·발주</div><div style="text-align:right">금액</div>
       <div style="text-align:center">계약</div>
     </div>
@@ -162,7 +167,7 @@
 // ★★★ 여기에 Apps Script 웹앱 URL 을 붙여넣으세요 (/exec 로 끝나는 것) ★★★
 var API = 'https://script.google.com/macros/s/AKfycbydPWnaxqJigOE3Y_DptoFvJe5vTvDm06bx8F_9qK6ppvEf2tvI70JH2z1ou7g-IdQd/exec';
 
-var S = { data:{}, stars:{}, hides:{}, orgs:[], tab:'일반공고', kw:'', date:'', mthd:'' };
+var S = { data:{}, stars:{}, hides:{}, orgs:[], memos:{}, tab:'일반공고', kw:'', date:'', mthd:'' };
 var ORDER = ['일반공고','사전규격','발주계획','추천','관심','발주처'];
 var rowsEl, tabsEl, lastEl, qEl, sortEl, mthdEl, kwbarEl, datebarEl, drawer, overlay;
 
@@ -193,7 +198,7 @@ function mergeStars(server){
 function load(){
   jsonp({action:'load'}, function(r){
     if(!r || r.err){ rowsEl.innerHTML='<div class="empty" style="color:#C0392B">오류: '+esc((r&&r.err)||'응답없음')+'</div>'; return; }
-    S.data=r.data||{}; S.stars=r.stars||{}; S.hides=r.hides||{}; S.orgs=r.orgs||[];
+    S.data=r.data||{}; S.stars=r.stars||{}; S.hides=r.hides||{}; S.orgs=r.orgs||[]; S.memos=r.memos||{};
     lastEl.textContent='· 수집 '+(r.last||'');
     tabs(); datebar(); kwbar(); orgchips(); paint();
   });
@@ -429,9 +434,14 @@ function appendChunk(){
       ? '<span class="orgbtn on" data-act="orgdel" data-word="'+esc(r.org)+'" title="발주처 해제">🏢 발주처✓</span>'
       : '<span class="orgbtn" data-act="orgadd" data-word="'+esc(r.org)+'" title="이 발주처 등록">🏢 발주처</span>';
     var recBadge=(r.rec>=3)?'<span class="recbadge hot">✦ 강추</span>':(r.rec===2)?'<span class="recbadge">✦ 추천</span>':'';
+    var mm=(S.memos[r.id]&&S.memos[r.id].memo)||'';
+    var memoCell = mm
+      ? '<div class="c-memo has" data-act="memo" data-id="'+esc(r.id)+'" title="'+esc(mm)+'">'+esc(mm)+'</div>'
+      : '<div class="c-memo" data-act="memo" data-id="'+esc(r.id)+'">＋ 메모</div>';
     html+='<div class="tr">'
       +'<div class="star'+(on?' on':'')+'" data-act="toggle" data-id="'+esc(r.id)+'">'+(on?'★':'☆')+'</div>'
       +'<div class="c-title">'+recBadge+title+kw+'<span class="rowbtns">'+hideBtn+orgReg+'</span></div>'
+      +memoCell
       +'<div class="c-org">'+esc(r.org)+'</div>'
       +'<div class="c-when'+soon+'">'+esc(r.when||'—')+'</div>'
       +'<div class="c-amt">'+amt+'</div>'
@@ -531,6 +541,13 @@ function init(){
       S.hides[id]=1; tabs(); paint();
       // 서버엔 저장만. 응답으로 로컬을 덮어쓰지 않는다(경합/캐시로 되살아나는 것 방지)
       jsonp({action:'hide',id:id,title:ti}, function(h){ if(h&&!h.err){ mergeHides(h); /* 화면 다시 안 그림: 이미 로컬 반영됨 */ } });
+    } else if(act==='memo'){
+      var cur=(S.memos[id]&&S.memos[id].memo)||'';
+      var v=prompt('메모 (비우면 삭제)', cur);
+      if(v===null) return;
+      if(v.trim()==='') delete S.memos[id]; else S.memos[id]={memo:v,by:''};
+      paint();
+      jsonp({action:'memo',id:id,memo:v}, function(m){ if(m&&!m.err){ S.memos=m; } });
     } else if(act==='orgadd'){
       var w=t.getAttribute('data-word')||''; if(!w) return;
       if(S.orgs.indexOf(w)<0) S.orgs.push(w); tabs(); paint();
