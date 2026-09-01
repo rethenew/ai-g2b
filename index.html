@@ -390,7 +390,7 @@ function renderRows(rows){
 function openDrawer(){ drawer.classList.add('open'); overlay.classList.add('open'); }
 function closeDrawer(){ drawer.classList.remove('open'); overlay.classList.remove('open'); }
 
-document.addEventListener('DOMContentLoaded', function(){
+function init(){
   rowsEl=document.getElementById('rows'); tabsEl=document.getElementById('tabs');
   lastEl=document.getElementById('last'); qEl=document.getElementById('q');
   sortEl=document.getElementById('sort'); kwbarEl=document.getElementById('kwbar');
@@ -467,7 +467,12 @@ document.addEventListener('DOMContentLoaded', function(){
     return;
   }
   load();
-});
+}
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded', init);
+}else{
+  init();
+}
 </script>
 </body>
 </html>
