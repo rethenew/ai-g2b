@@ -35,6 +35,7 @@
   .tab[data-k="추천"].on{background:var(--spec);color:#fff}
   .tab[data-k="발주처"].on{background:var(--live);color:#fff}
   .tab[data-k="보관"].on{background:#5B6B78;color:#fff}
+  .tab[data-k="검토"].on{background:var(--alert);color:#fff}
   .tab b{margin-left:5px;font-variant-numeric:tabular-nums}
   .toolbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
   .toolbar input{flex:1;min-width:160px;font:inherit;font-size:13px;padding:9px 11px;border:1px solid var(--line);background:var(--card);border-radius:3px}
@@ -99,6 +100,9 @@
   .keepbtn{display:inline-block;font-size:11px;font-weight:700;color:#5B6B78;cursor:pointer;user-select:none;padding:2px 8px;border:1px solid #C5CDD3;border-radius:12px}
   .keepbtn:hover{color:#fff;background:#5B6B78;border-color:#5B6B78}
   .keepbtn.on{color:#fff;background:#5B6B78;border-color:#5B6B78}
+  .reviewbtn{display:inline-block;font-size:11px;font-weight:700;color:var(--alert);cursor:pointer;user-select:none;padding:2px 8px;border:1px solid #EFC5C0;border-radius:12px}
+  .reviewbtn:hover{color:#fff;background:var(--alert);border-color:var(--alert)}
+  .reviewbtn.on{color:#fff;background:var(--alert);border-color:var(--alert)}
   .recbadge{display:inline-block;font-size:10px;font-weight:800;color:#fff;background:var(--spec);padding:2px 7px;border-radius:10px;margin-right:6px;vertical-align:middle}
   .recbadge.hot{background:var(--alert)}
   .c-title{font-weight:600;line-height:1.4;min-width:0}
@@ -132,7 +136,7 @@
     .c-org::before{content:'🏛 '}
     .c-memo.has{margin-top:4px}
     .rowbtns{flex-wrap:wrap}
-    .hidebtn,.orgbtn,.keepbtn{padding:3px 10px}
+    .hidebtn,.orgbtn,.keepbtn,.reviewbtn{padding:3px 10px}
     .toolbar{flex-direction:column;align-items:stretch}
     .toolbar input,.exinput{min-width:0;width:100%}
     .toolbar .sort{justify-content:space-between}
@@ -209,8 +213,8 @@
 // ★★★ 여기에 Apps Script 웹앱 URL 을 붙여넣으세요 (/exec 로 끝나는 것) ★★★
 var API = 'https://script.google.com/macros/s/AKfycbydPWnaxqJigOE3Y_DptoFvJe5vTvDm06bx8F_9qK6ppvEf2tvI70JH2z1ou7g-IdQd/exec';
 
-var S = { data:{}, stars:{}, hides:{}, orgs:[], memos:{}, keeps:{}, tab:'일반공고', kw:'', date:'', mthd:'' };
-var ORDER = ['일반공고','사전규격','발주계획','추천','관심','발주처','보관'];
+var S = { data:{}, stars:{}, hides:{}, orgs:[], memos:{}, keeps:{}, reviews:{}, tab:'일반공고', kw:'', date:'', mthd:'' };
+var ORDER = ['일반공고','사전규격','발주계획','추천','관심','발주처','보관','검토'];
 var rowsEl, tabsEl, lastEl, qEl, sortEl, mthdEl, kwbarEl, datebarEl, drawer, overlay;
 
 function esc(s){ return String(s).replace(/[&<>"]/g,function(c){
@@ -240,7 +244,7 @@ function mergeStars(server){
 function load(){
   jsonp({action:'load'}, function(r){
     if(!r || r.err){ rowsEl.innerHTML='<div class="empty" style="color:#C0392B">오류: '+esc((r&&r.err)||'응답없음')+'</div>'; return; }
-    S.data=r.data||{}; S.stars=r.stars||{}; S.hides=r.hides||{}; S.orgs=r.orgs||[]; S.memos=r.memos||{}; S.keeps=r.keeps||{};
+    S.data=r.data||{}; S.stars=r.stars||{}; S.hides=r.hides||{}; S.orgs=r.orgs||[]; S.memos=r.memos||{}; S.keeps=r.keeps||{}; S.reviews=r.reviews||{};
     lastEl.textContent='· 수집 '+(r.last||'');
     tabs(); datebar(); kwbar(); orgchips(); paint();
   });
@@ -253,6 +257,15 @@ function starred(){
     var s=S.stars[id];
     // 현재 데이터에 살아있으면 그걸(reg/hits 최신) 쓰고, 없으면 시트 저장분
     var live=findRaw(id);
+    if(live) out.push(live);
+    else out.push({ id:id, title:s.title||'', org:s.org||'', mthd:'', amt:s.amt||0, when:s.when||'', reg:'', hits:'', url:s.url||'' });
+  });
+  return out;
+}
+function reviewRows(){
+  var out=[];
+  Object.keys(S.reviews).forEach(function(id){
+    var s=S.reviews[id]; var live=findRaw(id);
     if(live) out.push(live);
     else out.push({ id:id, title:s.title||'', org:s.org||'', mthd:'', amt:s.amt||0, when:s.when||'', reg:'', hits:'', url:s.url||'' });
   });
@@ -297,6 +310,7 @@ function tabs(){
     else if(k==='추천') cnt=recRows().length;
     else if(k==='발주처') cnt=orgRows().length;
     else if(k==='보관') cnt=Object.keys(S.keeps).length;
+    else if(k==='검토') cnt=Object.keys(S.reviews).length;
     else cnt=(S.data[k]||[]).filter(function(r){
       if(S.hides[r.id]) return false;
       if(S.keeps[r.id]) return false;
@@ -305,7 +319,7 @@ function tabs(){
     }).length;
     var d=document.createElement('div');
     d.className='tab'+(S.tab===k?' on':''); d.setAttribute('data-k',k);
-    var label = k==='관심'?'★ 관심' : k==='추천'?'✦ 추천' : k==='발주처'?'🏢 발주처' : k==='보관'?'📁 보관' : k;
+    var label = k==='관심'?'★ 관심' : k==='추천'?'✦ 추천' : k==='발주처'?'🏢 발주처' : k==='보관'?'📁 보관' : k==='검토'?'🔎 검토' : k;
     d.innerHTML=label+'<b>'+cnt+'</b>';
     d.onclick=function(){ S.tab=k; S.kw=''; tabs(); datebar(); kwbar(); paint(); };
     tabsEl.appendChild(d);
@@ -412,9 +426,10 @@ function paint(){
   else if(S.tab==='추천') rows=recRows();
   else if(S.tab==='발주처') rows=orgRows();
   else if(S.tab==='보관') rows=keepRows();
+  else if(S.tab==='검토') rows=reviewRows();
   else rows=(S.data[S.tab]||[]).slice();
   // 관심/추천/발주처: 개찰·날짜 필터 없이 검색·정렬만
-  if(S.tab==='관심'||S.tab==='추천'||S.tab==='발주처'||S.tab==='보관'){
+  if(S.tab==='관심'||S.tab==='추천'||S.tab==='발주처'||S.tab==='보관'||S.tab==='검토'){
     if(S.mthd) rows=rows.filter(mthdMatch);
     if(q) rows=rows.filter(function(r){ return (r.title+' '+r.org).toLowerCase().indexOf(q)>=0; });
     rows.sort(function(a,b){
@@ -489,6 +504,10 @@ function appendChunk(){
     var keepBtn=kept
       ? '<span class="keepbtn on" data-act="keepdel" data-id="'+esc(r.id)+'" title="보관 해제">📁 보관✓</span>'
       : '<span class="keepbtn" data-act="keep" data-id="'+esc(r.id)+'" data-title="'+esc(r.title)+'" data-kind="'+esc(S.tab)+'" data-org="'+esc(r.org)+'" data-when="'+esc(r.when)+'" data-amt="'+(r.amt||0)+'" data-url="'+esc(r.url)+'" title="다음에 보기">📁 보관</span>';
+    var reviewing=!!S.reviews[r.id];
+    var reviewBtn=reviewing
+      ? '<span class="reviewbtn on" data-act="reviewdel" data-id="'+esc(r.id)+'" title="검토 해제">🔎 검토✓</span>'
+      : '<span class="reviewbtn" data-act="review" data-id="'+esc(r.id)+'" data-title="'+esc(r.title)+'" data-kind="'+esc(S.tab)+'" data-org="'+esc(r.org)+'" data-when="'+esc(r.when)+'" data-amt="'+(r.amt||0)+'" data-url="'+esc(r.url)+'" title="입찰 진지 검토">🔎 검토</span>';
     var orgReg=(S.orgs.indexOf(r.org)>=0)
       ? '<span class="orgbtn on" data-act="orgdel" data-word="'+esc(r.org)+'" title="발주처 해제">🏢 발주처✓</span>'
       : '<span class="orgbtn" data-act="orgadd" data-word="'+esc(r.org)+'" title="이 발주처 등록">🏢 발주처</span>';
@@ -499,7 +518,7 @@ function appendChunk(){
       : '<div class="c-memo" data-act="memo" data-id="'+esc(r.id)+'">＋ 메모</div>';
     html+='<div class="tr">'
       +'<div class="star'+(on?' on':'')+'" data-act="toggle" data-id="'+esc(r.id)+'">'+(on?'★':'☆')+'</div>'
-      +'<div class="c-title">'+recBadge+title+kw+'<span class="rowbtns">'+hideBtn+keepBtn+orgReg+'</span></div>'
+      +'<div class="c-title">'+recBadge+title+kw+'<span class="rowbtns">'+hideBtn+keepBtn+reviewBtn+orgReg+'</span></div>'
       +memoCell
       +'<div class="c-org">'+esc(r.org)+'</div>'
       +'<div class="c-when'+soon+'">'+esc(r.when||'—')+'</div>'
@@ -628,6 +647,13 @@ function init(){
     } else if(act==='keepdel'){
       delete S.keeps[id]; tabs(); datebar(); paint();
       jsonp({action:'keep',id:id}, function(){});
+    } else if(act==='review'){
+      var ri={ id:id, kind:t.getAttribute('data-kind')||'', title:t.getAttribute('data-title')||'', org:t.getAttribute('data-org')||'', when:t.getAttribute('data-when')||'', amt:t.getAttribute('data-amt')||0, url:t.getAttribute('data-url')||'' };
+      S.reviews[id]={title:ri.title,org:ri.org,when:ri.when,amt:Number(ri.amt)||0,url:ri.url}; tabs(); paint();
+      jsonp({action:'review',id:id,kind:ri.kind,title:ri.title,org:ri.org,when:ri.when,amt:ri.amt,url:ri.url}, function(){});
+    } else if(act==='reviewdel'){
+      delete S.reviews[id]; tabs(); paint();
+      jsonp({action:'review',id:id}, function(){});
     } else if(act==='orgadd'){
       var w=t.getAttribute('data-word')||''; if(!w) return;
       if(S.orgs.indexOf(w)<0) S.orgs.push(w); tabs(); paint();
