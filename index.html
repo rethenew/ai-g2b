@@ -11,7 +11,8 @@
         --line:#E4E8E6;--line2:#EEF1EF;--live:#1F7A5C;--spec:#B07D2B;--plan:#5B6B78;
         --alert:#C0392B;--star:#E6A817;}
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'Pretendard',-apple-system,'Malgun Gothic',sans-serif;background:var(--paper);color:var(--ink);-webkit-font-smoothing:antialiased}
+  body{font-family:'Pretendard',-apple-system,'Malgun Gothic',sans-serif;background:var(--paper);color:var(--ink);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  .tbl{overflow-x:hidden}
   .wrap{max-width:1300px;margin:0 auto;padding:16px 14px 60px}
   header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
   .fbtn{font:inherit;font-size:13px;font-weight:700;cursor:pointer;padding:8px 15px;border:1px solid var(--ink);background:var(--ink);color:#fff;border-radius:3px}
@@ -116,12 +117,26 @@
   .c-mthd{font-size:11px;color:var(--mist);text-align:center}
   .empty{padding:48px;text-align:center;color:var(--mist);font-size:13px;line-height:1.9}
   #busy{padding:48px;text-align:center;color:var(--steel);font-size:13px}
-  @media(max-width:760px){
+  @media(max-width:900px){
     .th{display:none}
-    .tr{grid-template-columns:30px 1fr;gap:2px 8px;padding:11px 12px}
-    .tr>div{padding:1px 0}
-    .c-memo,.c-org,.c-when,.c-amt,.c-mthd{grid-column:2}
-    .c-amt{text-align:left}
+    .tr{grid-template-columns:28px 1fr !important;gap:3px 8px;padding:12px}
+    .tr>div{padding:0}
+    .c-title{grid-column:2;grid-row:1}
+    .star{grid-column:1;grid-row:1}
+    .c-memo,.c-org,.c-when,.c-amt,.c-mthd{grid-column:2;grid-row:auto;font-size:12px}
+    .c-org{color:var(--steel);font-weight:600}
+    .c-amt{text-align:left;color:var(--ink)}
+    .c-mthd{text-align:left}
+    .c-when::before{content:'⏰ '}
+    .c-amt::before{content:'💰 '}
+    .c-org::before{content:'🏛 '}
+    .c-memo.has{margin-top:4px}
+    .rowbtns{flex-wrap:wrap}
+    .hidebtn,.orgbtn,.keepbtn{padding:3px 10px}
+    .toolbar{flex-direction:column;align-items:stretch}
+    .toolbar input,.exinput{min-width:0;width:100%}
+    .toolbar .sort{justify-content:space-between}
+    .datebar{margin-left:-14px;margin-right:-14px;padding-left:14px;padding-right:14px}
   }
 </style>
 </head>
