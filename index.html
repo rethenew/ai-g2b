@@ -67,6 +67,8 @@
   .hidekwresult{margin-top:10px;display:flex;flex-wrap:wrap;gap:5px}
   .hidekwresult .hk{font-size:12px;padding:4px 9px;border:1px solid #EFD9D5;background:#FDF4F3;color:var(--alert);border-radius:14px;cursor:pointer}
   .hidekwresult .hk:hover{background:var(--alert);color:#fff;border-color:var(--alert)}
+  #goodkwresult .hk{border-color:#CBE3D9;background:#F0F7F4;color:var(--live)}
+  #goodkwresult .hk:hover{background:var(--live);color:#fff;border-color:var(--live)}
   .hidekwresult .note{font-size:11px;color:var(--mist);width:100%;line-height:1.6}
   .kwbar{display:flex;flex-wrap:wrap;gap:6px;padding:16px}
   .kwbar .kchip{font-size:12px;padding:5px 11px;border:1px solid var(--line);background:var(--card);color:var(--steel);border-radius:20px;cursor:pointer;font-weight:600}
@@ -182,6 +184,11 @@
       <button id="hidekwbtn" class="hidekwbtn">숨김 목록 분석</button>
       <div class="hidekwresult" id="hidekwresult"></div>
     </div>
+    <div class="hidekwsec">
+      <div class="hidekwlbl" style="color:var(--live)">✦ 검토·보관에서 포함어 뽑기</div>
+      <button id="goodkwbtn" class="hidekwbtn" style="border-color:var(--live);color:var(--live)">검토·보관 분석</button>
+      <div class="hidekwresult" id="goodkwresult"></div>
+    </div>
     <div class="kwlbl2">키워드 필터</div>
     <div class="kwbar" id="kwbar"></div>
   </div>
@@ -214,7 +221,7 @@
 var API = 'https://script.google.com/macros/s/AKfycbydPWnaxqJigOE3Y_DptoFvJe5vTvDm06bx8F_9qK6ppvEf2tvI70JH2z1ou7g-IdQd/exec';
 
 var S = { data:{}, stars:{}, hides:{}, orgs:[], memos:{}, keeps:{}, reviews:{}, tab:'일반공고', kw:'', date:'', mthd:'' };
-var ORDER = ['일반공고','사전규격','발주계획','추천','관심','발주처','보관','검토'];
+var ORDER = ['일반공고','사전규격','발주계획','관심','발주처','보관','검토'];
 var rowsEl, tabsEl, lastEl, qEl, sortEl, mthdEl, kwbarEl, datebarEl, drawer, overlay;
 
 function esc(s){ return String(s).replace(/[&<>"]/g,function(c){
@@ -572,6 +579,27 @@ function init(){
           });
         };
         hidekwresult.appendChild(s);
+      });
+    });
+  };
+
+  var goodkwbtn=document.getElementById('goodkwbtn');
+  var goodkwresult=document.getElementById('goodkwresult');
+  if(goodkwbtn) goodkwbtn.onclick=function(){
+    goodkwbtn.disabled=true; goodkwbtn.textContent='분석 중…';
+    jsonp({action:'goodkw'}, function(r){
+      goodkwbtn.disabled=false; goodkwbtn.textContent='검토·보관 분석';
+      if(!r||r.err){ goodkwresult.innerHTML='<span class="note">오류</span>'; return; }
+      if(!r.words||!r.words.length){ goodkwresult.innerHTML='<span class="note">검토·보관 '+(r.total||0)+'건. 새 반복 키워드 없음.</span>'; return; }
+      goodkwresult.innerHTML='<span class="note">검토·보관 '+r.total+'건에서 자주 나온 단어(현재 미포함). 클릭하면 포함 키워드로 추가.</span>';
+      r.words.forEach(function(o){
+        var s=document.createElement('span'); s.className='hk'; s.textContent=o.word+' '+o.count;
+        s.onclick=function(){
+          if(!confirm('["'+o.word+'"] 를 포함 키워드로 추가합니다. (다음 수집부터 반영)\n진행할까요?')) return;
+          s.style.opacity='0.4';
+          jsonp({action:'addkw',word:o.word}, function(){ s.remove(); });
+        };
+        goodkwresult.appendChild(s);
       });
     });
   };
